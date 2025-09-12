@@ -1,10 +1,5 @@
-# IDEs
-.idea/
-
-# Hugo
-resources/
-public/
-jsconfig.json
-node_modules/
-go.sum
-.hugo_build.lock
+public
+resources/_gen
+node_modules
+yarn.*
+.hugo_build.*

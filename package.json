@@ -1,0 +1,15 @@
+{
+  "name": "perplex",
+  "version": "0.2.0",
+  "description": "Personal website",
+  "main": "index.js",
+  "author": "Axel-Cleris Gailloty",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@fullhuman/postcss-purgecss": "^5.0.0",
+    "pagefind": "^1.3.0",
+    "postcss": "^8.4.31",
+    "postcss-cli": "^10.1.0"
+  },
+  "repository": "https://github.com/bowman2001/perplex"
+}

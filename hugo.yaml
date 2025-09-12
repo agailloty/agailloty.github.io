@@ -1,0 +1,25 @@
+baseURL: https://gailloty.net
+title: GAILLOTY.NET
+
+refLinksErrorLevel: WARNING
+timeout: 600s
+
+enableEmoji: true
+
+markup:
+  _merge: deep
+
+taxonomies:
+  _merge: deep
+
+module:
+  imports:
+    - path: github.com/bowman2001/perplex
+
+params:
+  description: A personal website where I showcase my projects and blog about subjects that I am interested in.
+  postcss: false
+
+build:
+  buildStats:
+    enable: false
