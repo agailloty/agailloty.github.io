@@ -13,7 +13,7 @@ resources:
       attr: "towardsdatascience"
       attrlink: https://towardsdatascience.com/docker-jupyter-for-machine-learning-in-1-minute-30e1df969d09
 ---
-Ayant beaucoup utilisé les notebooks Jupyter, dans l'environnement data science de Python et R j'ai réalisé que l'intégration de langages comme C# et F# dans ce même environnement serait incroyablement puissante.
+Coder en C# de manière intéractive grâce à Jupyter notebook.
 {.p-first} <!--more-->
 
 Pouvoir expérimenter rapidement avec différentes syntaxes et concepts de programmation est une un moyen rapide de prendre en main un langage de programmation et représente un gain de temps énorme. En tant que passionné de programmation, je me trouve souvent à explorer de nouveaux langages et à tester différentes approches pour résoudre des problèmes. Récemment, j'ai eu besoin d'un moyen simple et rapide de tester des syntaxes en C# et en F# sans avoir à créer un projet .NET complet à chaque fois. C'est là que Jupyter Lab et Docker ont fait leur entrée.
