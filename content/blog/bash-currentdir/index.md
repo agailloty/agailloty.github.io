@@ -1,13 +1,17 @@
 ---
 authors: [Axel-Cleris Gailloty]
-title: "N'afficher que le répertoire courant dans bash"
+title: "Personnaliser l'affichage du terminal bash"
 description: Guide complet pour personnaliser l'invite de commande bash
 date: 2026-03-18T19:59:07+01:00
 categories: [linux]
-
+resources:
+  - src: featured.jpg
+    name: featured
 ---
 
-Quand je travaille, j'aime avoir le moins de distractions possibles. Cela peut surprendre plus d'un mais si voir le chemin complet du répertoire dans lequel je me trouve dans VS Code me perturbe. 
+Quand je travaille, j'aime avoir le moins de distractions possibles. 
+{.p-first} <!--more-->
+Cela peut surprendre plus d'un mais si voir le chemin complet du répertoire dans lequel je me trouve dans VS Code me perturbe. 
 Heureusement qu'il est tout à fait possible de modifier ce qui s'affiche dans le terminal lorsqu'on travaille avec `bash`. 
 
 Dans ce petit article je vais vous montrer quelques astuces pour personnaliser les informations qui s'affichent dans votre bash. 
