@@ -100,9 +100,11 @@ Maintenant, votre prompt personnalisé sera appliqué à chaque nouvelle session
 
 ## Autres personnalisations utiles
 
-### Ajouter des couleurs
+### Ajouter des couleurs et du formatage
 
-Vous pouvez également ajouter de la couleur à votre prompt. Voici un exemple :
+Vous pouvez enrichir votre prompt avec des couleurs et différents styles de texte en utilisant des codes ANSI.
+
+#### Codes de couleur
 
 ```bash
 PS1='\[\033[01;32m\]\W\[\033[00m\] > '
@@ -111,11 +113,82 @@ PS1='\[\033[01;32m\]\W\[\033[00m\] > '
 Cela affichera le nom du répertoire en vert.
 
 Codes de couleur utiles :
-- `\[\033[01;31m\]` : Rouge
-- `\[\033[01;32m\]` : Vert
-- `\[\033[01;33m\]` : Jaune
-- `\[\033[01;34m\]` : Bleu
-- `\[\033[00m\]` : Réinitialiser la couleur
+- `\[\033[00;31m\]` : Rouge
+- `\[\033[00;32m\]` : Vert
+- `\[\033[00;33m\]` : Jaune
+- `\[\033[00;34m\]` : Bleu
+- `\[\033[00;35m\]` : Magenta
+- `\[\033[00;36m\]` : Cyan
+- `\[\033[00;37m\]` : Blanc
+- `\[\033[00m\]` : Réinitialiser tous les styles
+
+#### Mettre le texte en gras
+
+Pour mettre le nom du dossier en gras, utilisez le code `01` :
+
+```bash
+PS1='\[\033[01m\]\W\[\033[00m\] > '
+```
+
+Le `01` active le mode gras. Vous pouvez aussi combiner gras et couleur :
+
+```bash
+PS1='\[\033[01;34m\]\W\[\033[00m\] > '
+```
+
+Cela affiche le répertoire en **bleu et gras**.
+
+#### Autres styles de formatage
+
+Codes de style disponibles :
+- `\[\033[01m\]` : **Gras** (ou intensité élevée)
+- `\[\033[02m\]` : Atténué/Dim
+- `\[\033[03m\]` : *Italique* (pas supporté sur tous les terminaux)
+- `\[\033[04m\]` : Souligné
+- `\[\033[05m\]` : Clignotant (lent)
+- `\[\033[07m\]` : Inversé (inverse la couleur de fond et de texte)
+- `\[\033[00m\]` : Réinitialiser tous les styles
+
+#### Exemples de combinaisons populaires
+
+**Répertoire en gras cyan :**
+```bash
+PS1='\[\033[01;36m\]\W\[\033[00m\] > '
+```
+
+**Répertoire en gras vert avec flèche colorée :**
+```bash
+PS1='\[\033[01;32m\]\W\[\033[00m\] \[\033[01;34m\]>\[\033[00m\] '
+```
+
+**Répertoire souligné et en jaune :**
+```bash
+PS1='\[\033[04;33m\]\W\[\033[00m\] > '
+```
+
+**Style moderne avec émojis :**
+```bash
+PS1='📁 \[\033[01;35m\]\W\[\033[00m\] ▶ '
+```
+
+**Couleur de fond personnalisée :**
+
+Vous pouvez aussi changer la couleur de fond :
+- `\[\033[40m\]` : Fond noir
+- `\[\033[41m\]` : Fond rouge
+- `\[\033[42m\]` : Fond vert
+- `\[\033[43m\]` : Fond jaune
+- `\[\033[44m\]` : Fond bleu
+- `\[\033[45m\]` : Fond magenta
+- `\[\033[46m\]` : Fond cyan
+- `\[\033[47m\]` : Fond blanc
+
+Exemple avec fond et texte en gras :
+```bash
+PS1='\[\033[01;37;44m\]\W\[\033[00m\] > '
+```
+
+Cela affiche le répertoire en blanc gras sur fond bleu.
 
 ### Prompt sur deux lignes
 
