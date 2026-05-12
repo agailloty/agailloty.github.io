@@ -1,8 +1,0 @@
-### Hugo template
-# Generated files by hugo
-public
-resources/_gen
-.idea
-.vscode
-yarn.*
-.hugo_build.*

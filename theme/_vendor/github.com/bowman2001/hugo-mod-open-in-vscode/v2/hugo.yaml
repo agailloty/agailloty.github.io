@@ -1,9 +1,0 @@
-module:
-  hugoVersion:
-    min: v0.120.0
-    extended: false
-
-params:
-  modOpenIn: 
-    name: VSCode
-    protocol: vscode

@@ -1,0 +1,3 @@
+[submodule "themes/kyrie"]
+	path = themes/kyrie
+	url = https://github.com/agailloty/kyrie

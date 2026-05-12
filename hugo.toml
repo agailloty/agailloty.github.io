@@ -1,0 +1,164 @@
+baseURL = "/"
+title = "GAILLOTY.NET"
+theme = "kyrie"
+
+defaultContentLanguage = "fr"
+defaultContentLanguageInSubdir = false
+
+[pagination]
+pagerSize = 10
+
+[markup.goldmark.renderer]
+unsafe = true
+
+[markup.highlight]
+noClasses   = false
+codeFences  = true
+lineNos     = false
+guessSyntax = true
+
+[params]
+size        = "m"
+colorScheme = "teal" # teal | ocean | forest | sunset | lavender | slate | rose
+colorMode   = "light"
+syntaxTheme = "dracula" # github, github-dark, monokai, dracula, nord, solarized-light, solarized-dark, vs, xcode, friendly
+
+[params.brand]
+name     = "GAILLOTY.NET"
+logoText = "GAILLOTY.NET"
+
+[params.author]
+name     = "Axel-Cleris Gailloty"
+title    = "Software Engineer - .NET & Data"
+bio      = "Passionne par le developpement logiciel, les outils open source et le partage de connaissances. Je construis des applications robustes avec .NET, j'automatise avec Python et Docker, et j'ecris sur tout ca ici."
+location = "France"
+image    = "https://avatars.githubusercontent.com/u/45500540?v=4"
+skills   = [".NET / C#", "Python", "Docker", "PostgreSQL", "Hugo", "Linux", "REST APIs", "Open Source"]
+publicationsLayout = "cards"
+
+[params.author.social]
+github   = "https://github.com/agailloty"
+twitter  = "https://twitter.com/cleris_mr"
+linkedin = "https://www.linkedin.com/in/cgailloty/"
+email    = "mailto:agailloty@gmail.com"
+
+[params.blog]
+showAuthor      = true
+showDate        = true
+showReadingTime = true
+showTags        = true
+listLayout      = "cards"
+
+[params.docs]
+enabled         = false  # set to false to hide the Docs section entirely
+sidebar         = true
+showBreadcrumbs = true
+showToc         = true
+
+[params.footer]
+showCopyright = true
+customText    = ""
+
+[languages.fr]
+languageName = "Francais"
+languageCode = "fr"
+weight       = 1
+contentDir   = "content/fr"
+title        = "GAILLOTY.NET"
+
+[languages.fr.params]
+description = "Site personnel d'Axel-Cleris Gailloty"
+
+[languages.fr.params.author]
+url = "/about/"
+
+[languages.fr.params.home]
+showHero     = false
+heroTitle    = "Bienvenue sur mon site"
+heroSubtitle = "Developpement logiciel, projets open source et articles techniques."
+
+[[languages.fr.params.home.sections]]
+type    = "blog"
+title   = "Derniers articles"
+count   = 3
+layout  = "list"
+moreUrl = "/blog/"
+
+[[languages.fr.params.home.sections]]
+type       = "projects"
+title      = "Projets"
+layout     = "cards"   # cards | spotlight | list | shelf | featured-grid
+showFilter = true
+allLabel   = "Tous"
+
+[[languages.fr.menu.main]]
+name   = "Blog"
+url    = "/blog/"
+weight = 10
+
+[[languages.fr.menu.main]]
+name   = "Projets"
+url    = "/projects/"
+weight = 15
+
+[[languages.fr.menu.main]]
+name   = "Docs"
+url    = "/docs/"
+weight = 20
+
+[[languages.fr.menu.main]]
+name   = "A propos"
+url    = "/about/"
+weight = 30
+
+[languages.en]
+languageName = "English"
+languageCode = "en"
+weight       = 2
+contentDir   = "content/en"
+title        = "GAILLOTY.NET"
+
+[languages.en.params]
+description = "Axel-Cleris Gailloty personal website - .NET, Docker, Python."
+
+[languages.en.params.author]
+url = "/en/about/"
+
+[languages.en.params.home]
+showHero     = false
+heroTitle    = "Welcome to my site"
+heroSubtitle = "Software development, open source projects and technical articles."
+
+[[languages.en.params.home.sections]]
+type    = "blog"
+title   = "Latest posts"
+count   = 3
+layout  = "list"
+moreUrl = "/blog/"
+
+[[languages.en.params.home.sections]]
+type       = "projects"
+title      = "Projects"
+layout     = "cards"   # cards | spotlight | list | shelf | featured-grid
+showFilter = true
+allLabel   = "All"
+
+[[languages.en.menu.main]]
+name   = "Blog"
+url    = "/blog/"
+weight = 10
+
+[[languages.en.menu.main]]
+name   = "Projects"
+url    = "/projects/"
+weight = 15
+
+[[languages.en.menu.main]]
+name   = "Docs"
+url    = "/docs/"
+weight = 20
+
+[[languages.en.menu.main]]
+name   = "About"
+url    = "/about/"
+weight = 30

@@ -1,5 +1,0 @@
-{{- if not ( strings.Contains . "</p>" ) }}
-  <p>{{ . | safeHTML }}</p>
-{{- else }}
-  {{- . | safeHTML }}
-{{- end -}}
