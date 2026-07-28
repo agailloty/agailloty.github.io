@@ -21,7 +21,7 @@ guessSyntax = true
 size        = "m"
 colorScheme = "teal" # teal | ocean | forest | sunset | lavender | slate | rose
 colorMode   = "light"
-syntaxTheme = "dracula" # github, github-dark, monokai, dracula, nord, solarized-light, solarized-dark, vs, xcode, friendly
+syntaxTheme = "friendly" # github, github-dark, monokai, dracula, nord, solarized-light, solarized-dark, vs, xcode, friendly
 
 [params.brand]
 name     = "GAILLOTY.NET"
@@ -30,7 +30,7 @@ logoText = "GAILLOTY.NET"
 [params.author]
 name     = "Axel-Cleris Gailloty"
 title    = "Software Engineer - .NET & Data"
-bio      = "Passionne par le developpement logiciel, les outils open source et le partage de connaissances. Je construis des applications robustes avec .NET, j'automatise avec Python et Docker, et j'ecris sur tout ca ici."
+bio      = "Je suis passionné par le développement logiciel, les outils open source et le partage de connaissances. Sur ce site vous trouverez des articles sur le développement C#/.NET, Docker, les bases de données et bien d'autres sujets techniques."
 location = "France"
 image    = "https://avatars.githubusercontent.com/u/45500540?v=4"
 skills   = [".NET / C#", "Python", "Docker", "PostgreSQL", "Hugo", "Linux", "REST APIs", "Open Source"]
@@ -80,7 +80,7 @@ heroSubtitle = "Developpement logiciel, projets open source et articles techniqu
 [[languages.fr.params.home.sections]]
 type    = "blog"
 title   = "Derniers articles"
-count   = 3
+count   = 4
 layout  = "list"
 moreUrl = "/blog/"
 
