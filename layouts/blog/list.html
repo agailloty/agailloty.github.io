@@ -1,0 +1,14 @@
+{{ define "main" }}
+  {{ $paginator := .Paginate (.Pages.ByDate.Reverse) }}
+  <header class="page-hero">
+    <p class="eyebrow">{{ i18n "technicalPublication" | default "Technical publication" }}</p>
+    <h1>{{ .Title }}</h1>
+    {{ with .Description }}<p>{{ . }}</p>{{ end }}
+  </header>
+  <div class="editorial-index">
+    {{ range $i, $p := $paginator.Pages }}
+      {{ partial "bento/article-card.html" (dict "page" $p "featured" (eq $i 0)) }}
+    {{ end }}
+  </div>
+  {{ partial "pagination.html" . }}
+{{ end }}
