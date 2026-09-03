@@ -1,6 +1,6 @@
 ---
 title: "Shipping a .NET application with MakeNSIS — 2. Hardening the package"
-description: "Upgrades, safe uninstallation, local automation, signing, and tests: evolve a .NET NSIS script into a professional delivery process."
+description: "Improve a .NET NSIS installer step by step: versions, upgrades, data, diagnostics, signing, and tests, without depending on PowerShell."
 date: 2026-09-01T00:00:00+02:00
 draft: false
 type: "blog"
@@ -9,35 +9,31 @@ tags: [dotnet, csharp, avalonia, windows, nsis, packaging]
 series: ["MakeNSIS for .NET"]
 ---
 
-[Part one](/en/blog/dotnet-makensis-1/) introduced the NSIS language, compiled a first script with `makensis`, and then applied the process to a real .NET application. This second part covers the properties of a maintainable installer: replacing a version, preserving data, uninstalling safely, diagnosing builds, and signing release files.
+[Part one](/en/blog/dotnet-makensis-1/) produces a working installer with `dotnet`, `makensis.exe`, and one complete `.nsi` file. This part starts from that result. Every change says exactly what to replace or add; PowerShell remains optional.
 
-## Start with an installation contract
+Creating Setup is only the first step. An installer becomes a delivery contract when it encounters an existing version, a running application, user data, or a partial uninstall. MakeNSIS makes these decisions visible in the repository, but it cannot make them for the team.
 
-Before adding macros, write down the product decisions:
+The goal is therefore not to accumulate macros. It is to define what the product promises and translate each promise into verifiable behavior: which version may replace another, which files belong to the package, which data must survive, and which artifact is actually released.
 
-| Question | Example of a consistent choice | Consequence |
-|---|---|---|
-| Scope | current user | `$LOCALAPPDATA`, `HKCU`, no elevation |
-| Architecture | Windows x64 | `win-x64` publish, dedicated artifact |
-| Runtime | self-contained | no separate .NET prerequisite, larger package |
-| Payload | entire publish directory | `File /r`, inventory driven by the SDK |
-| Removal | `Uninstall.exe` | entry in Windows Installed apps |
-| UI | Modern UI 2, English and French | selectable wizard language |
+## The installation contract
 
-These choices must remain consistent. Changing only `RequestExecutionLevel` to `admin` does not correctly convert a per-user package into a per-machine package.
+The package keeps a consistent model:
 
-The values in this table match a self-contained desktop application such as TidyMemo, but the reasoning applies to any .NET project. An enterprise application installed for every account might make different choices.
+| Decision | Value |
+|---|---|
+| Scope | current user |
+| Installation | `$LOCALAPPDATA\Programs\MyApp` |
+| Registry | `HKCU` |
+| Privileges | `RequestExecutionLevel user` |
+| Architecture | `win-x64` |
+| Runtime | self-contained |
+| User data | outside `$INSTDIR` |
 
-## Versions: separate display text from the Windows format
+Changing only `RequestExecutionLevel` to `admin` does not create a proper per-machine package. The directory, registry, shortcuts, and multi-user scenarios would also need review.
 
-An installer usually handles a version displayed to users and a version resource understood by Windows. In the TidyMemo example, the script receives `MAJOR.MINOR.PATCH` and uses it as follows:
+## Support prereleases without breaking Windows
 
-```nsis
-VIProductVersion "${APP_VERSION}.0"
-VIAddVersionKey /LANG=1033 "FileVersion" "${APP_VERSION}"
-```
-
-`VIProductVersion` must remain numeric. To support prereleases, use separate symbols:
+A display version such as `2.5.0-beta.1` is not a valid Windows version resource. Replace `APP_VERSION` in the `.nsi` file with two symbols:
 
 ```nsis
 !ifndef APP_DISPLAY_VERSION
@@ -52,165 +48,176 @@ VIProductVersion "${APP_FILE_VERSION}"
 VIAddVersionKey /LANG=1033 "FileVersion" "${APP_DISPLAY_VERSION}"
 ```
 
-PowerShell can validate both formats. Do not silently derive a dubious version: packaging failures should be early and readable.
-
-## Upgrades: define behavior instead of merely overwriting
-
-The current script reuses the registered path and copies new files. That often handles a simple update, but it leaves several cases undefined:
-
-- a file removed from the new publish output may remain on disk;
-- a running application may lock files;
-- an older release may overwrite a newer one;
-- renamed shortcuts or registry values may survive;
-- interruption may leave a partial state.
-
-At minimum, store and compare the installed version in `.onInit`, using `LogicLib.nsh` and `WordFunc.nsh` or a tested comparison function. Explicitly decide whether downgrade is rejected, allowed, or confirmed. To remove obsolete files, prefer a controlled inventory or carefully invoke the old uninstaller. Recursively deleting the directory before copying may destroy data mistakenly stored there.
-
-Running-process handling needs an application-specific policy: request shutdown through Restart Manager or a plugin, detect and show an error, or fail explicitly. No single NSIS instruction can make an arbitrary desktop update atomic.
-
-## Uninstallation: remove only what you own
-
-A first NSIS script often ends with this instruction, which the TidyMemo example also uses:
+Also use this in the installation section:
 
 ```nsis
-RMDir /r "$INSTDIR"
-```
-
-It is concise and effective while `$INSTDIR` contains installed files only. It is also the most sensitive line in the script: settings or documents written there will be deleted.
-
-A Windows application should place mutable data elsewhere, such as `$APPDATA\TidyMemo` for roaming settings or `$LOCALAPPDATA\TidyMemo` for local data. The uninstaller can then offer to remove user data separately instead of doing so unconditionally.
-
-Also provide useful uninstall metadata:
-
-```nsis
-WriteRegStr HKCU "${APP_REGISTRY_KEY}" "DisplayName" "${APP_NAME}"
 WriteRegStr HKCU "${APP_REGISTRY_KEY}" "DisplayVersion" "${APP_DISPLAY_VERSION}"
-WriteRegStr HKCU "${APP_REGISTRY_KEY}" "Publisher" "${APP_PUBLISHER}"
-WriteRegStr HKCU "${APP_REGISTRY_KEY}" "DisplayIcon" "$INSTDIR\${APP_EXE}"
-WriteRegStr HKCU "${APP_REGISTRY_KEY}" "InstallLocation" "$INSTDIR"
-WriteRegStr HKCU "${APP_REGISTRY_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
-WriteRegStr HKCU "${APP_REGISTRY_KEY}" "QuietUninstallString" '"$INSTDIR\Uninstall.exe" /S'
-WriteRegDWORD HKCU "${APP_REGISTRY_KEY}" "NoModify" 1
-WriteRegDWORD HKCU "${APP_REGISTRY_KEY}" "NoRepair" 1
 ```
 
-## A genuinely reusable local script
+The compilation command becomes:
 
-The local entry point should be the source of truth, with CI merely calling it. A reasonable layout is:
+```bat
+"C:\Program Files (x86)\NSIS\makensis.exe" /NOCD /V3 /DAPP_DISPLAY_VERSION=2.5.0-beta.1 /DAPP_FILE_VERSION=2.5.0.0 /DPUBLISH_DIR=publish\win-x64 /DOUTPUT_FILE=artifacts\MyApp-Setup.exe packaging\windows\MyApp.nsi
+```
+
+Both values are now explicit. No hidden conversion depends on a scripting language.
+
+## Refuse downgrades
+
+Add these includes near the top of the `.nsi` file:
+
+```nsis
+!include "LogicLib.nsh"
+!include "WordFunc.nsh"
+```
+
+Store the version during installation:
+
+```nsis
+WriteRegStr HKCU "${APP_REGISTRY_KEY}" "PackageVersion" "${APP_FILE_VERSION}"
+```
+
+Then add this function before the `Section` blocks:
+
+```nsis
+Function .onInit
+  ReadRegStr $0 HKCU "${APP_REGISTRY_KEY}" "PackageVersion"
+  ${If} $0 != ""
+    ${VersionCompare} "${APP_FILE_VERSION}" "$0" $1
+    ${If} $1 == 2
+      MessageBox MB_ICONSTOP|MB_OK \
+        "A newer version ($0) is already installed. Uninstall it before installing ${APP_DISPLAY_VERSION}."
+      Abort
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+```
+
+`VersionCompare` returns `2` when its second argument is newer. The product rule is explicit: reinstalling the same version and upgrading are allowed; downgrading is refused.
+
+This check does not solve the case of a running application. Depending on the product, request shutdown, integrate Restart Manager, or block installation with a message. This behavior must be tested with the real executable; no universal directive can make every desktop update safe.
+
+## Delete only what the installer owns
+
+`RMDir /r "$INSTDIR"` is acceptable only when the directory contains package files exclusively. The application should write preferences and documents elsewhere:
 
 ```text
-packaging/windows/
-├── TidyMemo.nsi
-└── package.ps1
-publish/windows-x64/       # generated, not committed
-artifacts/                 # generated, not committed
+%APPDATA%\MyApp          roaming settings
+%LOCALAPPDATA%\MyApp     cache and local data
 ```
 
-`package.ps1` should:
+The uninstaller from part one preserves both locations. If the product should offer to remove them, add a clearly named optional page or section; do not make their deletion implicit.
 
-1. validate the version and prerequisites;
-2. resolve every path to an absolute path;
-3. run `dotnet restore`, then `dotnet publish`;
-4. check the expected executable and resources;
-5. call `makensis` with `/V3` or `/V4`;
-6. inspect `$LASTEXITCODE` after every native executable;
-7. verify and hash the final artifact;
-8. return non-zero on the first failure.
+An upgrade that simply copies files may leave a file removed from the new publication. For a small, controlled package, list obsolete files before copying:
 
-For focused build diagnostics:
+```nsis
+Section "Install"
+  Delete "$INSTDIR\OldName.dll"
+  Delete "$INSTDIR\old-tool.exe"
 
-```powershell
-$log = Join-Path $artifactsDir 'makensis.log'
-& $makeNsis "/O$log" '/V4' `
-    "/DAPP_VERSION=$Version" `
-    "/DPUBLISH_DIR=$publishDir" `
-    "/DOUTPUT_FILE=$setup" `
-    "/DREPOSITORY_ROOT=$repositoryRoot" `
-    $nsiScript
-if ($LASTEXITCODE -ne 0) {
-    Get-Content -LiteralPath $log -Tail 100
-    throw "NSIS compilation failed ($LASTEXITCODE)."
-}
+  SetOutPath "$INSTDIR"
+  File /r "${PUBLISH_DIR}\*"
+  ; rest of the section...
+SectionEnd
 ```
 
-`/O` takes its filename without a space between the option and value, as specified by NSIS.
+Do not recursively erase `$INSTDIR` before an upgrade: a faulty storage policy could destroy data. When the list grows, generate and version a package manifest or design a dedicated migration.
 
-## Reproducibility: state what you promise
+## Produce a useful build log
 
-“Reproducible” has two meanings. A process is reproducible when the same command creates a working package from a given revision. Bit-for-bit identical output is stronger: timestamps, SDK, NSIS, compression, and signing may alter bytes.
+MakeNSIS can write its own log. The `/Opath` syntax has no space after `/O`:
+
+```bat
+"C:\Program Files (x86)\NSIS\makensis.exe" /NOCD /V4 /Oartifacts\makensis.log /DAPP_DISPLAY_VERSION=2.5.0 /DAPP_FILE_VERSION=2.5.0.0 /DPUBLISH_DIR=publish\win-x64 /DOUTPUT_FILE=artifacts\MyApp-Setup.exe packaging\windows\MyApp.nsi
+```
+
+In `cmd.exe`, the following command prints the log and stops immediately on failure:
+
+```bat
+"C:\Program Files (x86)\NSIS\makensis.exe" /NOCD /V4 /Oartifacts\makensis.log /DAPP_DISPLAY_VERSION=2.5.0 /DAPP_FILE_VERSION=2.5.0.0 /DPUBLISH_DIR=publish\win-x64 /DOUTPUT_FILE=artifacts\MyApp-Setup.exe packaging\windows\MyApp.nsi || (type artifacts\makensis.log & exit /b 1)
+```
+
+This remains a terminal command rather than a PowerShell script to maintain.
+
+## A practical definition of reproducibility
+
+Here, “reproducible” means that the same revision and tool versions create a working package through the same command. It does not yet promise byte-for-byte identical output.
 
 To stabilize the process:
 
 - pin the SDK with `global.json`;
-- version the `.nsi` and `package.ps1` files;
-- document or pin the NSIS version;
-- use a NuGet lock file where project policy calls for one;
-- release from a clean Git tree;
-- record SHA-256, tool versions, and source commit.
+- commit the `.nsi` file and NuGet lock files;
+- document the NSIS version;
+- archive the source commit, tool versions, and Setup SHA-256;
+- build releases from a clean Git tree.
 
-Promise bit-for-bit output only after measuring it in controlled environments.
+Calculate the hash with a standard Windows tool:
 
-## Signing: two artifacts, two decisions
+```bat
+certutil -hashfile artifacts\MyApp-Setup.exe SHA256
+```
 
-NSIS does not replace Authenticode. For professional distribution, consider signing:
+## Authenticode signing
 
-1. published executables and DLLs that require their own signature;
-2. the `Setup.exe` after `makensis` compiles it.
-
-The simplified order is:
+Sign the published executables that require it, build Setup, and then sign Setup:
 
 ```text
-dotnet publish → sign payload → makensis → sign Setup.exe → SHA-256
+dotnet publish → sign application → makensis → sign Setup → SHA-256
 ```
 
-Signing changes the file, so compute the final hash afterwards. Keep certificates and secrets outside the repository. Certificate provider, key storage, and timestamp service are organizational choices; this article intentionally provides no command containing a secret.
+With `signtool.exe` from the Windows SDK, the general form is:
 
-A valid signature improves package identity and integrity, but does not by itself guarantee that Windows reputation warnings never appear.
+```bat
+signtool sign /fd SHA256 /tr https://TIMESTAMP-SERVICE-URL /td SHA256 /sha1 CERTIFICATE-THUMBPRINT artifacts\MyApp-Setup.exe
+```
 
-## Minimum test matrix
+The URL and certificate-selection method depend on your provider and key storage. Never commit a private certificate or secret. Calculate the final hash after signing because the signature changes the executable.
 
-| Scenario | Check |
+## Test matrix
+
+| Scenario | Expected result |
 |---|---|
-| interactive installation | pages, destination, launch, shortcuts |
-| `/S` installation | exit code and executable presence |
-| same-version reinstall | deterministic behavior, no duplicates |
-| N → N+1 upgrade | new files and obsolete-file removal |
-| downgrade | documented policy is enforced |
-| application is running | message or controlled shutdown |
-| spaces/Unicode in path | correct compilation and execution |
-| interactive and `/S` uninstall | binaries and registry removed |
-| user data | preserved or removed with consent |
-| standard account | no unexpected elevation |
+| interactive installation | correct pages, destination, shortcut, and launch |
+| `/S` installation | zero exit code and executable present |
+| same-version reinstall | no duplicates |
+| N → N+1 upgrade | updated version and obsolete files removed |
+| downgrade | message followed by cancellation |
+| application running | documented policy respected |
+| path containing spaces | successful compilation and installation |
+| interactive and `/S` removal | directory, shortcut, and registry removed |
+| user data | preserved unless removal was explicitly requested |
+| standard account | no elevation |
 
-A clean VM provides much stronger evidence than a development machine where runtimes, keys, and old files already exist.
+Begin with silent commands in a disposable VM:
 
-## Appendix: invoke packaging from CI
-
-This optional step adds no new NSIS concept. Once `package.ps1` is versioned and tested locally, any Windows CI system can install the tools and invoke:
-
-```powershell
-./packaging/windows/package.ps1 -Version '${{ steps.version.outputs.version }}'
+```bat
+artifacts\MyApp-Setup.exe /S
+if not exist "%LOCALAPPDATA%\Programs\MyApp\MyApp.exe" exit /b 1
+"%LOCALAPPDATA%\Programs\MyApp\Uninstall.exe" /S
+if exist "%LOCALAPPDATA%\Programs\MyApp\MyApp.exe" exit /b 1
 ```
 
-Developer and runner now use the same entry point. GitHub Actions remains valuable for isolation and artifact publication, without containing a second packaging implementation.
+This covers the basic path. Upgrade tests require keeping two different Setup files and installing them in sequence.
 
-## Release checklist
+## One command—only when it becomes useful
 
-- RID and self-contained/framework-dependent model are intentional.
-- .NET, display, and Windows file versions agree.
-- A per-user package uses `HKCU` and a user-owned directory.
-- The application writes no durable data under `$INSTDIR`.
-- Install, upgrade, and uninstall are tested interactively and silently.
-- Paths containing spaces work.
-- The artifact is signed according to project policy, then hashed.
-- CI invokes the documented local command.
+The process rests on two explicit commands: `dotnet publish` and `makensis.exe`. They are easy to inspect and repair independently, and a Windows CI runner can execute them as written.
 
-MakeNSIS simplifies distribution by turning decisions otherwise buried in a ZIP, manual procedure, or opaque workflow into explicit, versioned code. The result is more than `Setup.exe`: it is a deployment contract the team can review, test, and evolve.
+If the team later wants one entry point, a `package.cmd` file, an MSBuild target, or the repository's existing build system can wrap them. That choice comes after understanding the process and does not change MakeNSIS's role.
+
+### Release checklist
+
+- The RID and self-contained model are intentional.
+- Display, file, and .NET versions are consistent.
+- The per-user package uses `$LOCALAPPDATA` and `HKCU`.
+- Durable data stays outside `$INSTDIR`.
+- Upgrade, downgrade, and running-application policies are tested.
+- Interactive and silent installation and removal work.
+- Setup is signed according to project policy and then hashed.
 
 ### References
 
 - [NSIS Users Manual](https://nsis.sourceforge.io/Docs/)
-- [NSIS compiler and installer options](https://nsis.sourceforge.io/Docs/Chapter3.html)
+- [MakeNSIS options](https://nsis.sourceforge.io/Docs/Chapter3.html)
+- [WordFunc and VersionCompare](https://nsis.sourceforge.io/Docs/AppendixE.html)
 - [Modern UI 2](https://nsis.sourceforge.io/Docs/Modern%20UI%202/Readme.html)
-- [TidyMemo NSIS script](https://github.com/agailloty/TidyMemo/blob/master/packaging/windows/TidyMemo.nsi)
-- [TidyMemo delivery workflow](https://github.com/agailloty/TidyMemo/blob/master/.github/workflows/dotnet.yml)
