@@ -1,6 +1,6 @@
 ---
 title: "Distribuer une application .NET avec MakeNSIS — 1. Du publish au Setup.exe"
-description: "Construire localement un installateur Windows NSIS reproductible pour une application .NET, à partir du cas réel de TidyMemo et sans dépendre de GitHub Actions."
+description: "Créer localement un installateur Windows NSIS reproductible pour une application .NET, avec un exemple complet et sans script PowerShell."
 date: 2026-09-01T00:00:00+02:00
 draft: false
 type: "blog"
@@ -9,17 +9,17 @@ tags: [dotnet, csharp, avalonia, windows, nsis, packaging]
 series: ["MakeNSIS pour .NET"]
 ---
 
-> **Un `dotnet publish` livre des fichiers ; un installateur livre une expérience de déploiement. MakeNSIS transforme cette dernière étape en code : reproductible, versionné et exécutable aussi bien sur un poste de développement que dans une chaîne de livraison.**
+> **Un `dotnet publish` livre des fichiers ; un installateur livre une expérience de déploiement. MakeNSIS transforme cette dernière étape en code versionné. Pour commencer, deux commandes et un fichier `.nsi` suffisent.**
 
-Une application desktop ne s'arrête pas à son exécutable. Il faut choisir un répertoire, copier un ensemble cohérent de fichiers, créer les raccourcis, exposer une désinstallation et permettre à Windows d'identifier le produit. Envoyer un ZIP laisse ces décisions à chaque utilisateur. Un installateur les rend explicites.
+Ce guide part d'une application desktop .NET nommée `MyApp`. Il ne demande ni PowerShell, ni GitHub Actions, ni connaissance préalable de NSIS. À la fin, vous disposerez d'un `MyApp-Setup.exe` installable et désinstallable.
 
-Ce premier volet construit d'abord un installateur minimal sans dépendre d'un dépôt particulier. Nous appliquerons ensuite les mêmes notions à [TidyMemo](https://github.com/agailloty/TidyMemo), une véritable application desktop Avalonia. Son automatisation GitHub ne sera étudiée qu'à la fin, comme consommateur du processus local et non comme point de départ.
+Une application desktop ne s'arrête pas à son exécutable. Quelqu'un doit choisir où la copier, créer les raccourcis, l'inscrire dans les applications Windows, prévoir sa mise à niveau et permettre sa désinstallation. Distribuer un ZIP délègue ces décisions à chaque utilisateur. Un installateur les prend une fois, de manière explicite et reproductible.
 
-## Ce que fait — et ne fait pas — `makensis`
+## Ce que fait — et ne fait pas — MakeNSIS
 
-[NSIS](https://nsis.sourceforge.io/Docs/) est un système scriptable de création d'installateurs Windows. `makensis.exe` en est le compilateur en ligne de commande : il lit un fichier `.nsi`, incorpore les fichiers désignés et produit un exécutable d'installation.
+[NSIS](https://nsis.sourceforge.io/Docs/) est un système de création d'installateurs Windows piloté par un langage de script. `makensis.exe` en est le compilateur : il lit un fichier `.nsi`, rassemble les fichiers désignés et génère un nouvel exécutable, le Setup.
 
-Il ne compile pas l'application .NET. La frontière est nette :
+MakeNSIS ne compile pas le code C# et ne connaît ni NuGet, ni Avalonia, ni le contenu du `.csproj`. Inversement, `dotnet publish` ne crée pas les raccourcis Windows et ne sait pas comment désinstaller l'application. La frontière est volontairement nette :
 
 ```text
 sources C# ── dotnet publish ──> dossier publiable
@@ -27,59 +27,80 @@ sources C# ── dotnet publish ──> dossier publiable
 script .nsi ─────── makensis ─────────┴──> Setup.exe
 ```
 
-Cette séparation est utile. Le SDK .NET décide du runtime, du mode autonome, du trimming ou de l'AOT ; NSIS décide de l'installation Windows. Un échec `dotnet publish` n'est donc pas un échec NSIS, et inversement.
+Cette séparation aide aussi au diagnostic. Si `dotnet publish` échoue, le problème appartient au build .NET. Si `makensis` ne trouve pas un fichier ou refuse une instruction, le problème appartient au packaging. Si le Setup est créé mais installe mal l'application, il faut examiner le comportement décrit dans le `.nsi`.
 
-## Le modèle mental de NSIS
+## Le modèle mental d'un script NSIS
 
-Un script NSIS est un programme d'installation déclaratif et impératif. Les instructions globales décrivent le paquet (`Name`, `OutFile`, `InstallDir`). Les pages définissent l'assistant visible. Les `Section` exécutent les opérations d'installation ou de désinstallation. Enfin, le préprocesseur — instructions préfixées par `!` — résout les constantes, inclusions et fichiers à embarquer pendant la compilation.
+Un `.nsi` mélange quatre familles d'instructions :
 
-Deux moments ne doivent pas être confondus :
+- les attributs globaux décrivent le paquet, par exemple `Name`, `OutFile` et `InstallDir` ;
+- les déclarations de pages composent l'assistant visible par l'utilisateur ;
+- les `Section` exécutent les opérations d'installation ou de désinstallation ;
+- le préprocesseur, reconnaissable au préfixe `!`, résout les constantes, inclusions et fichiers à embarquer.
 
-- **à la compilation**, `makensis` développe les macros et incorpore les fichiers indiqués par `File` ;
-- **à l'installation**, le `Setup.exe` généré utilise des variables comme `$INSTDIR`, écrit sur le poste cible et crée le désinstalleur.
+Il faut surtout distinguer **la compilation** de **l'installation**.
 
-Ainsi, `${PUBLISH_DIR}` peut désigner le dossier de build sur la machine du développeur, tandis que `$INSTDIR` désigne le dossier final sur la machine de l'utilisateur.
+Pendant la compilation, `makensis.exe` lit le `.nsi`. Il développe les macros, évalue les `${...}` et incorpore les fichiers sélectionnés par `File`. Le dossier publié doit donc exister sur la machine qui construit le Setup.
 
-## Installer NSIS sans gestionnaire de paquets
+Plus tard, l'utilisateur exécute le Setup obtenu. C'est seulement à ce moment que les `Section` s'exécutent, que `$INSTDIR` reçoit sa valeur, que les fichiers sont extraits et que le registre est modifié.
 
-Le seul prérequis supplémentaire au SDK .NET est l'installateur officiel NSIS pour Windows. La [page de téléchargement NSIS](https://nsis.sourceforge.io/Download) renvoie vers l'exécutable de la version stable. Au moment de cette rédaction, il s'agit de [NSIS 3.12 — `nsis-3.12-setup.exe`](https://sourceforge.net/projects/nsis/files/NSIS%203/3.12/nsis-3.12-setup.exe/download), un téléchargement d'environ 1,6 Mo. Pour un guide durable, vérifiez toujours la page officielle avant de figer une version dans un script.
+Ainsi, `${PUBLISH_DIR}` représente un dossier de build sur le poste du développeur, tandis que `$INSTDIR` représente le dossier final sur le poste de l'utilisateur. Les deux syntaxes se ressemblent, mais n'existent ni au même moment ni sur la même machine.
 
-1. Téléchargez l'exécutable depuis la page officielle.
-2. Lancez-le et conservez les composants par défaut, qui comprennent le compilateur et les fichiers d'inclusion.
-3. Terminez l'installation. Aucune extension d'éditeur ni aucun gestionnaire de paquets n'est nécessaire.
+## Le parcours complet
 
-L'emplacement habituel d'une installation 32 bits sur Windows 64 bits est `C:\Program Files (x86)\NSIS`, mais un script robuste ne doit pas masquer un emplacement personnalisé :
-
-```powershell
-$candidates = @(
-    (Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'),
-    (Join-Path $env:ProgramFiles 'NSIS\makensis.exe')
-)
-$makeNsis = $candidates | Where-Object {
-    Test-Path -LiteralPath $_ -PathType Leaf
-} | Select-Object -First 1
-
-if (-not $makeNsis) {
-    throw 'makensis.exe est introuvable. Installez NSIS depuis https://nsis.sourceforge.io/Download.'
-}
-& $makeNsis /VERSION
+```text
+MyApp.csproj
+    │
+    └── dotnet publish ──> publish\win-x64\
+                                  │
+MyApp.nsi ─── makensis.exe ───────┴──> artifacts\MyApp-Setup.exe
 ```
 
-Cette dernière commande doit afficher la version du compilateur.
+Le SDK .NET décide du runtime, du mode autonome, du trimming et de l'AOT. NSIS décide du dossier d'installation, des raccourcis, du registre et de la désinstallation.
 
-## Premier installateur : partir d'un dossier publié
+## Prérequis
 
-Supposons une application desktop `MyApp` dont le projet se trouve dans `src/MyApp/MyApp.csproj`. Publiez-la d'abord pour Windows :
+Vous avez besoin de Windows, du SDK .NET utilisé par votre projet et de [NSIS](https://nsis.sourceforge.io/Download).
 
-```powershell
-dotnet publish src/MyApp/MyApp.csproj `
-    --configuration Release `
-    --runtime win-x64 `
-    --self-contained true `
-    --output publish/win-x64
+1. Installez le SDK .NET puis vérifiez-le avec `dotnet --info`.
+2. Installez NSIS avec les composants par défaut.
+3. Vérifiez le compilateur depuis `cmd.exe` ou le terminal de votre IDE :
+
+```bat
+"C:\Program Files (x86)\NSIS\makensis.exe" /VERSION
 ```
 
-Créez ensuite `packaging/windows/MyApp.nsi` :
+Si NSIS se trouve ailleurs, remplacez ce chemin dans les commandes suivantes. Aucun état n'est partagé entre les blocs de ce guide : chaque commande peut être copiée dans un nouveau terminal ouvert à la racine du projet.
+
+## Arborescence utilisée
+
+```text
+MyApp/
+├── src/
+│   └── MyApp/
+│       └── MyApp.csproj
+└── packaging/
+    └── windows/
+        └── MyApp.nsi
+```
+
+Si votre projet se trouve ailleurs, seule la commande `dotnet publish` devra être adaptée.
+
+## Étape 1 — publier l'application
+
+Depuis la racine du dépôt :
+
+```bat
+dotnet publish src\MyApp\MyApp.csproj --configuration Release --runtime win-x64 --self-contained true --output publish\win-x64
+```
+
+Vérifiez que `publish\win-x64\MyApp.exe` existe. Ce dossier est le contrat entre .NET et NSIS : l'installateur embarquera tout son contenu.
+
+Le mode `--self-contained true` évite d'imposer le runtime .NET au poste cible, au prix d'un paquet plus volumineux. N'ajoutez pas immédiatement trimming ou Native AOT : ces optimisations ont leurs propres prérequis et doivent être testées séparément.
+
+## Étape 2 — créer le script NSIS complet
+
+Créez `packaging\windows\MyApp.nsi` avec ce contenu :
 
 ```nsis
 Unicode True
@@ -87,245 +108,133 @@ Unicode True
 
 !define APP_NAME "MyApp"
 !define APP_EXE "MyApp.exe"
+!define APP_PUBLISHER "My Company"
+!define APP_REGISTRY_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 
-Name "${APP_NAME}"
-OutFile "MyApp-Setup.exe"
-InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
-RequestExecutionLevel user
-SetCompressor /SOLID lzma
-
-!insertmacro MUI_PAGE_DIRECTORY
-!insertmacro MUI_PAGE_INSTFILES
-!insertmacro MUI_UNPAGE_CONFIRM
-!insertmacro MUI_UNPAGE_INSTFILES
-!insertmacro MUI_LANGUAGE "French"
-
-Section "Install"
-  SetOutPath "$INSTDIR"
-  File /r "..\..\publish\win-x64\*"
-  WriteUninstaller "$INSTDIR\Uninstall.exe"
-  CreateShortcut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
-SectionEnd
-
-Section "Uninstall"
-  Delete "$SMPROGRAMS\${APP_NAME}.lnk"
-  RMDir /r "$INSTDIR"
-SectionEnd
-```
-
-Compilez-le depuis la racine du projet :
-
-```powershell
-& $makeNsis 'packaging/windows/MyApp.nsi'
-if ($LASTEXITCODE -ne 0) {
-    throw "makensis a échoué avec le code $LASTEXITCODE."
-}
-```
-
-Ce premier script contient déjà le cycle complet : `File /r` embarque la publication, `SetOutPath` choisit sa destination, `WriteUninstaller` génère le programme de suppression et la seconde section décrit l'opération inverse. Il reste volontairement minimal : registre, icône, licence, version et chemins injectables viendront avec l'exemple réel.
-
-## Étude de cas : TidyMemo
-
-TidyMemo est une application desktop open source consacrée à l'organisation et au traitement local de photos et vidéos. Son interface utilise Avalonia et son projet principal se trouve dans `TidyMemo/TidyMemo.csproj`. Le dépôt contient un script NSIS dans `packaging/windows/TidyMemo.nsi`. Nous allons maintenant reprendre exactement les étapes précédentes avec ses contraintes réelles.
-
-### Prérequis .NET de l'exemple
-
-L'exemple correspond à l'état de TidyMemo consulté pour cet article : cible `net10.0`, runtime `win-x64`, publication autonome et `PublishAot` activé dans le projet.
-
-Sur Windows, vérifiez le SDK :
-
-```powershell
-dotnet --info
-dotnet --list-sdks
-```
-
-### Produire l'application Windows
-
-Depuis la racine du dépôt TidyMemo :
-
-```powershell
-$version = '2.5.0'
-
-dotnet restore TidyMemo/TidyMemo.csproj
-if ($LASTEXITCODE -ne 0) { throw 'dotnet restore a échoué.' }
-
-dotnet publish TidyMemo/TidyMemo.csproj `
-    --configuration Release `
-    --runtime win-x64 `
-    --self-contained true `
-    --output publish/windows-x64 `
-    -p:Version=$version `
-    -p:PublishTrimmed=true
-if ($LASTEXITCODE -ne 0) { throw 'dotnet publish a échoué.' }
-```
-
-Le RID `win-x64` fixe ici une architecture. `--self-contained true` inclut les composants .NET nécessaires : l'utilisateur n'a pas à installer séparément le runtime ciblé, au prix d'un paquet plus volumineux. Le trimming demande des tests fonctionnels, car du code atteint indirectement — par réflexion, par exemple — peut être retiré. Dans TidyMemo, `PublishAot` est déjà défini dans le `.csproj` ; il ne faut pas généraliser ce choix à toute application Avalonia sans valider ses dépendances.
-
-Contrôler le contrat remis au packageur :
-
-```powershell
-$publishDir = (Resolve-Path 'publish/windows-x64').Path
-$appExe = Join-Path $publishDir 'TidyMemo.exe'
-if (-not (Test-Path -LiteralPath $appExe -PathType Leaf)) {
-    throw "La publication ne contient pas $appExe"
-}
-```
-
-### Faire évoluer le script minimal
-
-Le script réel se trouve dans [`packaging/windows/TidyMemo.nsi`](https://github.com/agailloty/TidyMemo/blob/master/packaging/windows/TidyMemo.nsi). Ses paramètres de build sont injectés par la ligne de commande :
-
-```nsis
 !ifndef APP_VERSION
   !define APP_VERSION "0.0.0"
 !endif
 !ifndef PUBLISH_DIR
-  !error "PUBLISH_DIR must point to the dotnet publish directory"
+  !error "PUBLISH_DIR doit désigner le dossier produit par dotnet publish"
 !endif
 !ifndef OUTPUT_FILE
-  !define OUTPUT_FILE "TidyMemo-Setup.exe"
+  !define OUTPUT_FILE "${APP_NAME}-Setup.exe"
 !endif
-```
 
-`!define` et `!ifndef` appartiennent au préprocesseur NSIS. Le script impose le seul intrant indispensable, `PUBLISH_DIR`, et fournit des valeurs par défaut aux autres. Les symboles passés avec `/D` doivent précéder le fichier `.nsi`, car `makensis` traite ses arguments dans l'ordre.
-
-La configuration principale exprime une installation par utilisateur :
-
-```nsis
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "${OUTPUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
 InstallDirRegKey HKCU "${APP_REGISTRY_KEY}" "InstallLocation"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-```
 
-Ce choix évite une élévation administrateur. Il est cohérent avec `HKCU` et `$LOCALAPPDATA`. Une installation dans `Program Files` demanderait généralement une stratégie machine (`admin`, registre `HKLM`) : ne mélangez pas les deux modèles.
+VIProductVersion "${APP_VERSION}.0"
+VIAddVersionKey /LANG=1036 "ProductName" "${APP_NAME}"
+VIAddVersionKey /LANG=1036 "FileVersion" "${APP_VERSION}"
+VIAddVersionKey /LANG=1036 "CompanyName" "${APP_PUBLISHER}"
 
-Les pages proviennent de Modern UI 2 :
-
-```nsis
-!include "MUI2.nsh"
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "${REPOSITORY_ROOT}\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
-```
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_LANGUAGE "French"
 
-La section d'installation copie exactement la sortie de `dotnet publish`, écrit le désinstalleur, crée les raccourcis et renseigne la clé de désinstallation Windows :
-
-```nsis
-Section "TidyMemo" SEC_MAIN
+Section "Install"
   SetOutPath "$INSTDIR"
   File /r "${PUBLISH_DIR}\*"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+
   WriteRegStr HKCU "${APP_REGISTRY_KEY}" "DisplayName" "${APP_NAME}"
-  WriteRegStr HKCU "${APP_REGISTRY_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
+  WriteRegStr HKCU "${APP_REGISTRY_KEY}" "DisplayVersion" "${APP_VERSION}"
+  WriteRegStr HKCU "${APP_REGISTRY_KEY}" "Publisher" "${APP_PUBLISHER}"
+  WriteRegStr HKCU "${APP_REGISTRY_KEY}" "DisplayIcon" "$INSTDIR\${APP_EXE}"
+  WriteRegStr HKCU "${APP_REGISTRY_KEY}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "${APP_REGISTRY_KEY}" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
+  WriteRegStr HKCU "${APP_REGISTRY_KEY}" "QuietUninstallString" '$\"$INSTDIR\Uninstall.exe$\" /S'
+  WriteRegDWORD HKCU "${APP_REGISTRY_KEY}" "NoModify" 1
+  WriteRegDWORD HKCU "${APP_REGISTRY_KEY}" "NoRepair" 1
+SectionEnd
+
+Section "Uninstall"
+  Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
+  RMDir "$SMPROGRAMS\${APP_NAME}"
+  DeleteRegKey HKCU "${APP_REGISTRY_KEY}"
+  RMDir /r "$INSTDIR"
 SectionEnd
 ```
 
-`File /r` est évalué à la compilation : les fichiers sont embarqués dans `Setup.exe`, pas relus sur le poste cible. À l'exécution, `$INSTDIR` désigne le répertoire choisi par l'utilisateur.
+Les `${...}` sont remplacés pendant la compilation. `$INSTDIR` et `$SMPROGRAMS` sont évalués lorsque l'utilisateur exécute le Setup.
 
-### Compiler le Setup localement
+Ce paquet est **par utilisateur** : `$LOCALAPPDATA`, `HKCU` et `RequestExecutionLevel user` forment un ensemble cohérent et n'exigent pas de droits administrateur.
 
-À ce stade, GitHub n'intervient pas. La commande locale complète est :
+> `RMDir /r "$INSTDIR"` suppose que l'application ne stocke aucun document ou réglage utilisateur dans son dossier d'installation. Placez ces données dans `$APPDATA\MyApp` ou `$LOCALAPPDATA\MyApp`.
 
-```powershell
-$ErrorActionPreference = 'Stop'
-$version = '2.5.0'
-$makeNsis = Join-Path ${env:ProgramFiles(x86)} 'NSIS\makensis.exe'
-$publishDir = (Resolve-Path 'publish/windows-x64').Path
-$repositoryRoot = (Resolve-Path '.').Path
+### Lire le script de haut en bas
 
-New-Item -ItemType Directory -Force artifacts | Out-Null
-$artifactsDir = (Resolve-Path 'artifacts').Path
-$setup = Join-Path $artifactsDir 'TidyMemo-windows-x64-Setup.exe'
+`Unicode True` produit un installateur Unicode. L'inclusion de `MUI2.nsh` apporte les macros de l'interface Modern UI 2 ; elle ne télécharge rien, car ce fichier est livré avec NSIS.
 
-& $makeNsis `
-    '/V3' `
-    "/DAPP_VERSION=$version" `
-    "/DPUBLISH_DIR=$publishDir" `
-    "/DOUTPUT_FILE=$setup" `
-    "/DREPOSITORY_ROOT=$repositoryRoot" `
-    'packaging/windows/TidyMemo.nsi'
+Les `!define` donnent des noms aux valeurs répétées. Les blocs `!ifndef` jouent un autre rôle : ils fournissent une valeur par défaut ou imposent un paramètre à la compilation. Ici, oublier `PUBLISH_DIR` provoque une erreur immédiate au lieu de construire silencieusement un paquet vide.
 
-if ($LASTEXITCODE -ne 0) {
-    throw "makensis a échoué avec le code $LASTEXITCODE."
-}
-if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) {
-    throw "L'installateur attendu n'a pas été créé : $setup"
-}
-Get-FileHash -Algorithm SHA256 -LiteralPath $setup
+`OutFile` désigne le Setup créé sur la machine de build. `InstallDir` désigne sa destination par défaut sur la machine cible. `InstallDirRegKey` relit l'ancien emplacement dans le registre lors d'une réinstallation.
+
+Les trois choix `$LOCALAPPDATA`, `HKCU` et `RequestExecutionLevel user` expriment une installation pour l'utilisateur courant. Les remplacer isolément créerait un modèle incohérent. Une installation dans `Program Files` pour tous les comptes demanderait au contraire une stratégie administrateur avec `HKLM`.
+
+Dans la section `Install`, `File /r` incorpore récursivement le résultat de `dotnet publish`. `WriteUninstaller` crée le programme inverse. Les instructions suivantes créent le raccourci puis enregistrent les métadonnées que Windows affiche dans **Applications installées**.
+
+La section `Uninstall` doit être symétrique : elle retire le raccourci, le registre et les fichiers possédés par le paquet. Cette symétrie est une propriété importante d'un installateur, pas une simple finition.
+
+## Étape 3 — compiler le Setup
+
+```bat
+mkdir artifacts
+"C:\Program Files (x86)\NSIS\makensis.exe" /NOCD /V3 /DAPP_VERSION=1.0.0 /DPUBLISH_DIR=publish\win-x64 /DOUTPUT_FILE=artifacts\MyApp-Setup.exe packaging\windows\MyApp.nsi
 ```
 
-La [syntaxe officielle de `makensis`](https://nsis.sourceforge.io/Docs/Chapter3.html) documente notamment `/V0` à `/V4` pour la verbosité, `/Ojournal.txt` pour écrire le journal et `/Dnom=valeur` pour définir un symbole. Conservez les guillemets PowerShell autour de chaque argument : les chemins contenant des espaces doivent arriver à `makensis` comme un argument unique.
+`/NOCD` demande à MakeNSIS de conserver la racine du dépôt comme répertoire courant : les deux chemins relatifs restent donc valides. Les options `/D` doivent précéder le fichier `.nsi`. Une compilation réussie crée `artifacts\MyApp-Setup.exe`. En cas d'erreur, remplacez `/V3` par `/V4`.
 
-## Une commande locale unique
+Vous venez de reproduire tout le processus. PowerShell n'est pas nécessaire : `dotnet` et `makensis.exe` sont simplement deux programmes en ligne de commande.
 
-Pour une documentation durable, placez les trois phases — validation, `dotnet publish`, `makensis` — dans `packaging/windows/package.ps1`, puis exposez une interface stable :
+## Adapter l'exemple
 
-```powershell
-./packaging/windows/package.ps1 -Version 2.5.0
-```
+Pour votre application, modifiez seulement :
 
-Le script doit résoudre ses chemins depuis sa propre position, et non depuis le répertoire courant :
+- le chemin du `.csproj` dans `dotnet publish` ;
+- `APP_NAME`, `APP_EXE` et `APP_PUBLISHER` dans le `.nsi` ;
+- éventuellement le RID `win-x64` si vous créez un paquet pour une autre architecture.
 
-```powershell
-param(
-    [Parameter(Mandatory)]
-    [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string] $Version
-)
-
-$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-Push-Location $repositoryRoot
-try {
-    # restore, publish, contrôles puis makensis
-}
-finally {
-    Pop-Location
-}
-```
-
-La validation à trois nombres n'est pas cosmétique. Le script TidyMemo construit `VIProductVersion "${APP_VERSION}.0"`, et la ressource de version Windows attend quatre composantes numériques. Une version comme `2.5.0-beta.1` doit être transformée en version fichier numérique, tout en conservant séparément sa version d'affichage.
+Gardez ici une version numérique `MAJOR.MINOR.PATCH`, par exemple `2.5.0`. La ressource Windows lui ajoute une quatrième composante : `2.5.0.0`.
 
 ## Vérifier le résultat
 
-Un build réussi ne valide pas le comportement du paquet. Sur une machine de test ou une VM Windows propre :
+Sur une VM Windows ou un compte de test :
 
-1. lancer `TidyMemo-windows-x64-Setup.exe` ;
-2. conserver puis modifier le dossier proposé ;
-3. démarrer l'application depuis le menu Démarrer ;
-4. vérifier l'entrée dans **Applications installées** ;
-5. réinstaller la même version, puis une version supérieure ;
-6. désinstaller et contrôler les fichiers et raccourcis restants.
+1. lancez `artifacts\MyApp-Setup.exe` ;
+2. vérifiez le raccourci et lancez l'application ;
+3. vérifiez l'entrée dans **Applications installées** ;
+4. désinstallez l'application ;
+5. vérifiez la disparition du raccourci, du dossier et de l'entrée Windows.
 
-NSIS accepte `/S` pour une installation silencieuse. Cela permet un smoke test automatisé :
+Installation et désinstallation silencieuses :
 
-```powershell
-$testDir = Join-Path $env:LOCALAPPDATA 'Programs\TidyMemo'
-Start-Process -FilePath $setup -ArgumentList '/S' -Wait
-if (-not (Test-Path (Join-Path $testDir 'TidyMemo.exe'))) {
-    throw 'Installation silencieuse non vérifiée.'
-}
-Start-Process -FilePath (Join-Path $testDir 'Uninstall.exe') -ArgumentList '/S' -Wait
+```bat
+artifacts\MyApp-Setup.exe /S
+"%LOCALAPPDATA%\Programs\MyApp\Uninstall.exe" /S
 ```
 
-Exécutez ce test dans un environnement jetable : il modifie le profil utilisateur courant. L'option `/D=chemin` de l'installateur existe, mais la documentation NSIS impose qu'elle soit le dernier argument, absolue et non entourée de guillemets.
+Ces commandes modifient votre profil Windows. Automatisez-les uniquement dans un environnement jetable.
 
-## Intégrer ensuite le processus à une CI
+## Et TidyMemo ?
 
-Une fois seulement le processus local compris et validé, une CI peut l'appeler. Dans TidyMemo, le [job Windows](https://github.com/agailloty/TidyMemo/blob/master/.github/workflows/dotnet.yml) prépare .NET et NSIS, calcule la version, publie l'application, compile le `.nsi` et téléverse les artefacts. Ces étapes ne définissent pas le fonctionnement de MakeNSIS : elles automatisent des commandes déjà exécutables sur un poste Windows.
+[TidyMemo](https://github.com/agailloty/TidyMemo) suit les mêmes étapes, avec Avalonia, Native AOT et davantage de métadonnées. Ces choix rendent son build moins universel ; ils ne sont donc plus nécessaires pour terminer ce premier tutoriel.
 
-Le bon sens de dépendance est donc : la CI appelle l'automatisation locale, et non l'automatisation locale qui cherche à reproduire des variables propres à GitHub. Le prochain volet partira de cette base pour traiter les mises à niveau, les données utilisateur, la signature, les journaux et les contrôles de livraison.
+Le [second volet](/blog/dotnet-makensis-2/) part exactement du script ci-dessus pour ajouter progressivement les versions d'affichage, les mises à niveau, les journaux, la signature et les tests de livraison.
 
 ### Références
 
 - [Manuel NSIS](https://nsis.sourceforge.io/Docs/)
 - [Utilisation de MakeNSIS en ligne de commande](https://nsis.sourceforge.io/Docs/Chapter3.html)
 - [Documentation Modern UI 2](https://nsis.sourceforge.io/Docs/Modern%20UI%202/Readme.html)
-- [Workflow TidyMemo](https://github.com/agailloty/TidyMemo/blob/master/.github/workflows/dotnet.yml)
-- [Script NSIS TidyMemo](https://github.com/agailloty/TidyMemo/blob/master/packaging/windows/TidyMemo.nsi)
