@@ -21,6 +21,23 @@ features:
   - "Création de diaporamas MP4 avec SlideTune"
   - "Traitement local, sans compte, publicité ni envoi dans le cloud"
   - "Application multiplateforme et open source sous licence MIT"
+changelog:
+  - date: "2026-08-27"
+    version: "v2.5.0"
+    type: "feature"
+    message: "Refonte complète — Exif Renamer devient TidyMemo"
+  - date: "2026-08-17"
+    version: "v2.1.0"
+    type: "feature"
+    message: "Exif Renamer v2.1.0"
+  - date: "2026-08-17"
+    version: "v2.0.0"
+    type: "feature"
+    message: "Exif Renamer v2.0.0"
+  - date: "2025-04-15"
+    version: "v1.0.0.0"
+    type: "feature"
+    message: "Première release publique d'Exif Renamer — renommage via EXIF"
 ---
 
 TidyMemo est une application de bureau gratuite et open source pour entretenir vos collections personnelles de photos et de vidéos. Né de la transformation complète d’Exif Renamer, le projet va désormais bien au-delà du renommage : il réunit plusieurs outils pour organiser, alléger, convertir et faire revivre vos souvenirs, sans confier vos fichiers à un service en ligne.
