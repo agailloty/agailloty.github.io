@@ -41,24 +41,10 @@ jobs:
         with:
           submodules: false
 
-      - name: Checkout theme (kyrie) pinned to tag
+      - name: Checkout theme (kyrie)
         run: |
           rm -rf themes/kyrie
-          git clone https://github.com/agailloty/kyrie themes/kyrie
-          cd themes/kyrie
-          # attendre que le workflow de release du thème ait poussé le tag (max ~3 min)
-          for i in $(seq 1 12); do
-            git fetch --tags --force
-            if git rev-parse "refs/tags/v0.4.0" >/dev/null 2>&1; then
-              git checkout v0.4.0
-              echo "Thème kyrie sur le tag v0.4.0 ($(git rev-parse --short HEAD))"
-              exit 0
-            fi
-            echo "Tag v0.4.0 pas encore disponible, nouvelle tentative dans 15s…"
-            sleep 15
-          done
-          echo "ERREUR: tag v0.4.0 introuvable" >&2
-          exit 1
+          git clone --depth 1 https://github.com/agailloty/kyrie themes/kyrie
 
       - name: Setup Pages
         id: pages
