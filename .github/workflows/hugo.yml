@@ -1,4 +1,3 @@
-# Sample workflow for building and deploying a Hugo site to GitHub Pages
 name: Website
 
 on:
@@ -44,7 +43,7 @@ jobs:
       - name: Checkout theme (kyrie)
         run: |
           rm -rf themes/kyrie
-          git clone --depth 1 https://github.com/agailloty/kyrie themes/kyrie
+          git clone --depth 1 --branch v0.4.4 https://github.com/agailloty/kyrie themes/kyrie
 
       - name: Setup Pages
         id: pages
