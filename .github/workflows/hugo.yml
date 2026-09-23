@@ -43,7 +43,7 @@ jobs:
       - name: Checkout theme (kyrie)
         run: |
           rm -rf themes/kyrie
-          git clone --depth 1 --branch v0.4.4 https://github.com/agailloty/kyrie themes/kyrie
+          git clone --depth 1 --branch v0.4.5 https://github.com/agailloty/kyrie themes/kyrie
 
       - name: Setup Pages
         id: pages
