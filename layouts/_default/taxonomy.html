@@ -1,0 +1,82 @@
+{{ define "main" }}
+  {{ if eq .Kind "term" }}
+  {{/* ── Taxonomy term page (e.g. /tags/bash/) ── */}}
+  <header class="taxonomy-header">
+    {{ with .Data.Singular }}<span class="taxonomy-label">{{ . | title }}</span>{{ end }}
+    <h1>{{ .Title }}</h1>
+    <p class="taxonomy-count">{{ len .Pages }} {{ if eq (len .Pages) 1 }}{{ i18n "articleSingular" }}{{ else }}{{ i18n "articlePlural" }}{{ end }}</p>
+  </header>
+
+  <div class="showcase showcase-articles">
+    {{ range .Pages }}
+      {{ $imgSrc := "" }}
+      {{ with .Params.image }}{{ $imgSrc = . }}{{ else }}{{ range .Resources.ByType "image" }}{{ if findRE `^featured` .Name }}{{ $imgSrc = .RelPermalink }}{{ end }}{{ end }}{{ end }}
+      {{ $imgCredit := .Params.imageCredit | default "" }}
+      {{ $imgCreditUrl := .Params.imageCreditUrl | default "" }}
+      <article class="showcase-card article-card">
+        <div class="showcase-img-wrap">
+          {{ if $imgSrc }}
+            <img src="{{ $imgSrc }}" alt="{{ .Title }}" loading="lazy" class="showcase-img">
+            {{ if $imgCredit }}
+            <span class="img-credit">
+              {{ if $imgCreditUrl }}<a href="{{ $imgCreditUrl }}" target="_blank" rel="noopener noreferrer">{{ $imgCredit }}</a>{{ else }}{{ $imgCredit }}{{ end }}
+            </span>
+            {{ end }}
+          {{ else }}
+            <div class="showcase-placeholder article-placeholder"></div>
+          {{ end }}
+        </div>
+        <div class="showcase-body">
+          <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
+          {{ $excerpt := .Summary | plainify | truncate 120 }}
+          {{ with $excerpt }}<p class="article-excerpt">{{ . }}</p>{{ end }}
+          {{ with .Params.tags }}
+            <div class="showcase-cats">
+              {{ range first 3 . }}<a href="{{ "/tags/" | relLangURL }}{{ . | urlize }}/" class="tag">{{ . }}</a>{{ end }}
+            </div>
+          {{ end }}
+          <div class="article-author">
+            {{ $authorImg := .Params.authorImage 
+}}
+            {{ $author := .Params.au
+thor | default "Anonyme" }}
+            {{ if $authorImg }}
+              <img src="{{ $authorImg }}" alt="{{ $author }}" class="author-avatar">
+            {{ else }}
+              <div class="author-avatar-placeholder">{{ substr $author 0 1 | upper }}</div>
+            {{ end }}
+            <div class="author-info">
+              <span class="author-name">{{ $author }}</span>
+              <span class="author-meta">{{ .Date.Format (or .Site.Params.dateFormat "02 Jan 2006") }} • {{ .ReadingTime }} min</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    {{ end }}
+  </div>
+
+  {{ partial "pagination.html" . }}
+
+  {{ else }}
+  {{/* ── Taxonomy list page (e.g. /tags/) ── */}}
+  <header class="taxonomy-header">
+    <h1>{{ .Title }}</h1>
+    {{ with .Data.Terms }}
+      <p class="taxonomy-count">{{ len . }} {{ $.Data.Plural }}</p>
+    {{ end }}
+  </header>
+
+  <div class="tag-cloud">
+    {{ with .Data.Terms }}
+      {{ range .ByCount }}
+        <a href="{{ .Page.RelPermalink }}" class="tag-cloud-item" data-count="{{ .Count }}">
+          <span class="tag-name">{{ .Page.Title }}</span>
+          <span class="tag-count">{{ .Count }}</span>
+        </a>
+      {{ end }}
+    {{ else }}
+      <p>{{ i18n "noItems" | default "Aucun élément." }}</p>
+    {{ end }}
+  </div>
+  {{ end }}
+{{ end }}
