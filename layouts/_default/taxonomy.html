@@ -36,10 +36,8 @@
             </div>
           {{ end }}
           <div class="article-author">
-            {{ $authorImg := .Params.authorImage 
-}}
-            {{ $author := .Params.au
-thor | default "Anonyme" }}
+            {{ $authorImg := .Params.authorImage }}
+            {{ $author := .Params.author | default "Anonyme" }}
             {{ if $authorImg }}
               <img src="{{ $authorImg }}" alt="{{ $author }}" class="author-avatar">
             {{ else }}
