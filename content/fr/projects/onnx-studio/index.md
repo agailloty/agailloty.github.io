@@ -1,7 +1,7 @@
 ---
 title: "ONNX Studio"
 description: "Application desktop multiplateforme pour charger, inspecter, exécuter et servir des modèles ONNX et scikit-learn"
-date: 2026-10-11T16:00:00Z
+date: 2026-10-11T10:00:00Z
 draft: false
 type: "projects"
 weight: 1

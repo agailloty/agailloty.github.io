@@ -1,7 +1,7 @@
 ---
 title: "ONNX Studio"
 description: "Cross-platform desktop app to load, inspect, run and serve ONNX and scikit-learn models"
-date: 2026-10-11T16:00:00Z
+date: 2026-10-11T10:00:00Z
 draft: false
 type: "projects"
 weight: 1
