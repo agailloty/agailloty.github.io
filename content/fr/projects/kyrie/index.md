@@ -10,10 +10,11 @@ link: "https://github.com/agailloty/kyrie"
 github: "agailloty/kyrie"
 featured: true
 status: "active"
-version: "v0.2.0"
+version: "v0.3.0"
 license: "MIT"
 tech: ["Hugo", "HTML", "CSS", "Go Templates", "i18n"]
 features:
+  - "Système de design bento pour la page d'accueil (v0.3.0)"
   - "7 palettes de couleurs avec mode clair / sombre / auto"
   - "3 tailles d'interface (m, l, xl) configurables en une ligne"
   - "Multilingue natif — fichiers i18n FR et EN inclus"
@@ -25,6 +26,10 @@ features:
   - "Page de projet enrichie : badges, stats GitHub live, changelog timeline"
   - "Page À propos configurable avec publications récentes"
 changelog:
+  - date: "2026-09-01"
+    version: "v0.3.0"
+    type: "feature"
+    message: "Système de design bento portfolio — accueil en grille bento"
   - date: "2026-05-09"
     version: "v0.2.0"
     type: "feature"
@@ -47,7 +52,8 @@ changelog:
     message: "Première release publique — blog, docs, projets, multilingue FR/EN"
 ---
 
-**Kyrie** est un thème Hugo conçu pour les développeurs qui veulent un site personnel propre et rapide, sans JavaScript superflu. Il couvre les trois cas d'usage les plus courants : un blog technique, une documentation structurée et un portfolio de projets open source.
+**Kyrie** est un thème Hugo conçu pour les développeurs qui veulent un site personnel pro
+pre et rapide, sans JavaScript superflu. Il couvre les trois cas d'usage les plus courants : un blog technique, une documentation structurée et un portfolio de projets open source.
 
 ## Installation
 
