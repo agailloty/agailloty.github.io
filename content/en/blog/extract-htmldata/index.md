@@ -1,6 +1,6 @@
 ---
-title: "Extraire des données à partir d'un document HTML"
-description: "Manipulation de documents HTML avec HtmlAgilityPack"
+title: "Extracting data from an HTML document"
+description: "Manipulating HTML documents with HtmlAgilityPack"
 date: 2023-05-10T00:00:00Z
 draft: false
 type: "blog"
@@ -8,19 +8,19 @@ author: "Axel-Cleris Gailloty"
 tags: [dotnet, data, Csharp, webscraping]
 ---
 
-Extraire du contenu dans un fichier HTML en utilisant la librairie .NET HtmlAgilityPack.
+Extracting content from an HTML file using the .NET library HtmlAgilityPack.
 
 # Introduction
 
-À l'ère numérique d'aujourd'hui, extraire et traiter des données provenant de différentes sources est une tâche courante. Cela est particulièrement vrai lorsqu'il s'agit de données d'emploi, où les informations sont dispersées dans plusieurs documents HTML. Dans cet article de blog, nous allons explorer un extrait de code en C# qui démontre comment extraire efficacement des informations sur les emplois à partir de fichiers HTML en utilisant la bibliothèque HtmlAgilityPack. De plus, nous nous plongerons dans le processus de sérialisation des données extraites en formats CSV et JSON pour une analyse ultérieure et une intégration avec d'autres systèmes.
+In today's digital era, extracting and processing data from various sources is a common task. This is especially true for job data, where information is scattered across multiple HTML documents. In this blog post, we will explore a C# code snippet that demonstrates how to efficiently extract job information from HTML files using the HtmlAgilityPack library. Additionally, we will dive into the process of serializing the extracted data into CSV and JSON formats for further analysis and integration with other systems.
 
-# Manipulation de documents HTML avec HtmlAgilityPack
+# Manipulating HTML documents with HtmlAgilityPack
 
-L'extrait de code repose sur la bibliothèque HtmlAgilityPack, un outil puissant pour l'analyse et la manipulation de documents HTML.
+The code snippet relies on the HtmlAgilityPack library, a powerful tool for parsing and manipulating HTML documents.
 
-## Méthode ExtractJobInfo
+## The ExtractJobInfo method
 
-La méthode `ExtractJobInfo` est responsable de l'extraction des informations sur les emplois à partir d'un document HTML. Elle prend un objet `HtmlDocument` en entrée et renvoie une liste d'objets `JobCard`.
+The `ExtractJobInfo` method is responsible for extracting job information from an HTML document. It takes an `HtmlDocument` object as input and returns a list of `JobCard` objects.
 
 ```cs
 private static IList<JobCard> ExtractJobInfo(HtmlDocument doc)
@@ -33,7 +33,7 @@ private static IList<JobCard> ExtractJobInfo(HtmlDocument doc)
 }
 ```
 
-Voici la définition de l'objet `JobCard` :
+Here is the definition of the `JobCard` object:
 
 ```cs
 public record JobCard(string Title, 
@@ -42,9 +42,9 @@ public record JobCard(string Title,
                       string Description);
 ```
 
-## Méthode ExtractInfo
+## The ExtractInfo method
 
-La méthode `ExtractInfo` est appelée par la méthode `ExtractJobInfo` pour extraire des détails spécifiques sur un emploi à partir d'un nœud de carte d'emploi.
+The `ExtractInfo` method is called by `ExtractJobInfo` to extract specific details about a job from a job card node.
 
 ```cs
 private static JobCard ExtractInfo(HtmlNode node)
@@ -57,16 +57,16 @@ private static JobCard ExtractInfo(HtmlNode node)
 }
 ```
 
-# Sérialisation des données en CSV et JSON
+# Serializing the data to CSV and JSON
 
-## Écriture dans un fichier CSV
+## Writing to a CSV file
 
 ```cs
 File.WriteAllLines("jobs.csv", 
     res.Select(job => $"{job.Title},{job.Company},{job.Location},{job.Description}"));
 ```
 
-## Écriture dans un fichier JSON
+## Writing to a JSON file
 
 ```cs
 private static void Persist(string filepath, IList<JobCard> data) 
@@ -80,11 +80,11 @@ private static void Persist(string filepath, IList<JobCard> data)
 
 # Conclusion
 
-Dans cet article de blog, nous avons exploré un extrait de code en C# qui présente l'utilisation de la bibliothèque HtmlAgilityPack pour la manipulation de documents HTML et a démontré comment extraire efficacement des informations sur les emplois à partir de fichiers HTML. En utilisant les requêtes XPath, les opérations LINQ et les capacités de sérialisation de `System.Text.Json`, cet extrait de code fournit un exemple concret d'automatisation de l'extraction et de la transformation de données.
+In this blog post, we explored a C# code snippet showcasing the use of the HtmlAgilityPack library for manipulating HTML documents, and demonstrated how to efficiently extract job information from HTML files. Using XPath queries, LINQ operations and the serialization capabilities of `System.Text.Json`, this snippet provides a concrete example of automating data extraction and transformation.
 
-# Annexe
+# Appendix
 
-J'ai créé un [répertoire Github](https://github.com/agailloty/webscraping-cs) pour ce projet. 
+I created a [GitHub repository](https://github.com/agailloty/webscraping-cs) for this project.
 
 ```cs
 using HtmlAgilityPack;
