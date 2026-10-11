@@ -1,6 +1,6 @@
 ---
-title: "Les applications basées sur fichier avec .NET 10"
-description: "Exécuter simplement votre code"
+title: "File-based apps with .NET 10"
+description: "Run your code, simply"
 date: 2026-02-24T15:15:00Z
 draft: false
 type: "blog"
@@ -8,38 +8,38 @@ author: "Axel-Cleris Gailloty"
 tags: [dotnet, Csharp]
 ---
 
-Gardez la puissance du langage (typage fort, performances, écosystème NuGet) sans la lourdeur habituelle.  
+Keep the power of the language (strong typing, performance, the NuGet ecosystem) without the usual overhead.
 
-Vous avez déjà eu besoin d'écrire un petit script pour automatiser une tâche, parser un fichier ou tester rapidement une API ? Si vous êtes développeur C#, vous avez probablement ressenti cette friction : créer un projet, un fichier `.csproj`, configurer les dépendances... tout ça pour quelques lignes de code.
+Have you ever needed to write a small script to automate a task, parse a file, or quickly test an API? If you are a C# developer, you have probably felt that friction: create a project, a `.csproj` file, configure the dependencies... all that for a few lines of code.
 
-Avec .NET 10 et C# 14, Microsoft a enfin répondu à ce besoin avec les **file-based apps** (applications basées sur fichier). Une petite révolution qui change la donne pour les scripts et utilitaires.
+With .NET 10 and C# 14, Microsoft has finally answered this need with **file-based apps**. A small revolution that changes the game for scripts and utilities.
 
-## Le problème que ça résout
+## The problem it solves
 
-Traditionnellement, même le plus simple des programmes C# nécessitait :
+Traditionally, even the simplest C# program required:
 
-- Un fichier solution (`.sln`)
-- Un fichier projet (`.csproj`)
-- La configuration des packages NuGet
-- Une structure de dossiers
+- A solution file (`.sln`)
+- A project file (`.csproj`)
+- NuGet package configuration
+- A folder structure
 
-Pour un "Hello World", c'était déjà beaucoup. Pour un script de 20 lignes, c'était franchement excessif.
+For a "Hello World", that was already a lot. For a 20-line script, it was frankly excessive.
 
-Résultat ? Beaucoup de développeurs C# se tournaient vers Python ou PowerShell pour leurs petits scripts, réservant C# aux "vrais" projets.
+The result? Many C# developers turned to Python or PowerShell for their small scripts, reserving C# for "real" projects.
 
-## La solution : un fichier, zéro configuration
+## The solution: one file, zero configuration
 
-Désormais, vous pouvez écrire votre code C# dans un simple fichier `.cs` et l'exécuter directement :
+Now you can write your C# code in a simple `.cs` file and run it directly:
 
 ```bash
-dotnet MonScript.cs
+dotnet MyScript.cs
 ```
 
-C'est tout. Pas de projet à créer, pas de configuration à gérer. Le SDK .NET s'occupe de tout en coulisses : il compile votre code dans un dossier temporaire, met en cache le résultat, et les exécutions suivantes sont quasi-instantanées.
+That's it. No project to create, no configuration to manage. The .NET SDK takes care of everything behind the scenes: it compiles your code into a temporary folder, caches the result, and subsequent runs are nearly instantaneous.
 
-## Un exemple concret : un web scraper en 20 lignes
+## A concrete example: a web scraper in 20 lines
 
-Pour illustrer la puissance de cette approche, prenons un cas pratique. Imaginons que vous vouliez récupérer la liste des articles d'un blog. Voici comment faire avec un fichier unique :
+To illustrate the power of this approach, let's take a practical case. Imagine you want to retrieve the list of articles from a blog. Here is how to do it with a single file:
 
 ```csharp
 #:package HtmlAgilityPack@1.12.4
@@ -62,76 +62,76 @@ if (articles != null) {
 }
 ```
 
-Enregistrez ce code dans un fichier `Scraper.cs` et exécutez-le :
+Save this code in a `Scraper.cs` file and run it:
 
 ```bash
 dotnet Scraper.cs
 ```
 
-En quelques secondes, vous obtenez la liste des titres d'articles. Simple, non ?
+In a few seconds, you get the list of article titles. Simple, right?
 
-## Les directives magiques : `#:`
+## The magic directives: `#:`
 
-Vous avez remarqué la première ligne ? C'est une **directive** propre aux file-based apps :
+Did you notice the first line? It is a **directive** specific to file-based apps:
 
 ```csharp
 #:package HtmlAgilityPack@1.12.4
 ```
 
-Cette syntaxe permet d'ajouter des packages NuGet directement dans votre fichier. Plus besoin de `dotnet add package` ou de modifier un `.csproj`. Vous déclarez vos dépendances, et le SDK s'occupe du reste.
+This syntax lets you add NuGet packages directly in your file. No more `dotnet add package` or editing a `.csproj`. You declare your dependencies, and the SDK takes care of the rest.
 
-Voici les principales directives disponibles :
+Here are the main available directives:
 
 | Directive | Description |
 |-----------|-------------|
-| `#:package Nom@version` | Ajoute un package NuGet |
-| `#:sdk Nom@version` | Cible un SDK spécifique (ex: Aspire) |
-| `#!/usr/bin/env dotnet` | Shebang pour exécution directe sur Unix |
+| `#:package Name@version` | Adds a NuGet package |
+| `#:sdk Name@version` | Targets a specific SDK (e.g. Aspire) |
+| `#!/usr/bin/env dotnet` | Shebang for direct execution on Unix |
 
-## Ce qui reste identique
+## What stays the same
 
-Rassurez-vous, vous êtes toujours en C#. Tout ce que vous connaissez fonctionne :
+Rest assured, you are still writing C#. Everything you know works:
 
-- **Top-level statements** : pas besoin de classe `Program` ni de méthode `Main`
-- **Async/await** : notre exemple utilise `await` sans aucune cérémonie
-- **LINQ** : le `.Select()` et `.ToList()` fonctionnent normalement
-- **Types** : vous pouvez déclarer des classes, records, interfaces en fin de fichier
-- **Toute la BCL** : `HttpClient`, `File`, `Console`... tout est là
+- **Top-level statements**: no need for a `Program` class or a `Main` method
+- **Async/await**: our example uses `await` with zero ceremony
+- **LINQ**: `.Select()` and `.ToList()` work as usual
+- **Types**: you can declare classes, records, interfaces at the end of the file
+- **The whole BCL**: `HttpClient`, `File`, `Console`... it's all there
 
-## Quand utiliser les file-based apps ?
+## When to use file-based apps
 
-Cette approche est idéale pour :
+This approach is ideal for:
 
-- **Scripts d'automatisation** : parsing de fichiers, transformation de données
-- **Prototypage rapide** : tester une idée, une API, un algorithme
-- **Utilitaires CLI** : petits outils en ligne de commande
-- **Apprentissage** : enseigner C# sans noyer les débutants sous la configuration
-- **One-shots** : migrations de données, corrections ponctuelles
+- **Automation scripts**: parsing files, transforming data
+- **Quick prototyping**: testing an idea, an API, an algorithm
+- **CLI utilities**: small command-line tools
+- **Learning**: teaching C# without drowning beginners in configuration
+- **One-offs**: data migrations, one-time fixes
 
-## Les limites actuelles
+## Current limitations
 
-Soyons honnêtes, cette fonctionnalité a quelques restrictions :
+Let's be honest, this feature has a few restrictions:
 
-1. **Un seul fichier** : vous ne pouvez pas (encore) répartir votre code sur plusieurs fichiers. Cette limitation devrait disparaître avec .NET 11.
+1. **A single file**: you cannot (yet) split your code across multiple files. This limitation should disappear with .NET 11.
 
-2. **Support IDE partiel** : l'IntelliSense fonctionne, mais pas aussi bien que dans un projet complet.
+2. **Partial IDE support**: IntelliSense works, but not as well as in a full project.
 
-3. **Pas pour la production** : pour une vraie application, préférez toujours un projet structuré.
+3. **Not for production**: for a real application, always prefer a structured project.
 
-## Migrer vers un projet complet
+## Migrating to a full project
 
-Votre script a grandi et mérite une vraie structure ? La migration est triviale :
+Your script has grown and deserves a real structure? Migration is trivial:
 
 ```bash
-dotnet project convert MonScript.cs
+dotnet project convert MyScript.cs
 ```
 
-Cette commande génère un projet complet avec toutes vos dépendances préservées. Votre code migre vers `Program.cs`, et vous avez un `.csproj` prêt à l'emploi.
+This command generates a complete project with all your dependencies preserved. Your code moves to `Program.cs`, and you get a ready-to-use `.csproj`.
 
 ## Conclusion
 
-Les file-based apps représentent un changement de philosophie pour C#. Microsoft reconnaît enfin que tous les programmes n'ont pas besoin d'être des applications d'entreprise. Parfois, on veut juste parser un fichier JSON ou scraper une page web.
+File-based apps represent a philosophical change for C#. Microsoft finally acknowledges that not every program needs to be an enterprise application. Sometimes, you just want to parse a JSON file or scrape a web page.
 
-Avec cette nouvelle approche, C# devient un choix viable pour les scripts du quotidien. Vous gardez la puissance du langage (typage fort, performances, écosystème NuGet) sans la lourdeur habituelle.
+With this new approach, C# becomes a viable choice for everyday scripting. You keep the power of the language (strong typing, performance, the NuGet ecosystem) without the usual overhead.
 
-La prochaine fois que vous aurez besoin d'un petit utilitaire, essayez. Créez un fichier `.cs`, écrivez votre code, et lancez `dotnet MonFichier.cs`. Vous pourriez être surpris par la fluidité de l'expérience.
+The next time you need a small utility, give it a try. Create a `.cs` file, write your code, and run `dotnet MyFile.cs`. You might be surprised by how smooth the experience is.
