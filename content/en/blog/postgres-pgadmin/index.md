@@ -1,6 +1,6 @@
 ---
-title: "Installer PostgreSQL et PgAdmin via Docker"
-description: "Installer PostgreSQL et PgAdmin via Docker"
+title: "Installing PostgreSQL and PgAdmin with Docker"
+description: "Installing PostgreSQL and PgAdmin with Docker"
 date: 2022-11-01T14:54:07+01:00
 draft: false
 type: "blog"
@@ -8,86 +8,86 @@ author: "Axel-Cleris Gailloty"
 tags: [docker, postgres, devops]
 ---
 
-# Pourquoi choisir PostgreSQL et PgAdmin ?
+# Why choose PostgreSQL and PgAdmin?
 
-**PostgreSQL** :
+**PostgreSQL**:
 
-PostgreSQL est une base de données relationnelle open source extrêmement robuste, offrant de nombreuses fonctionnalités avancées telles que la prise en charge de JSON, de la géolocalisation, des requêtes complexes et bien plus encore. Connu pour sa fiabilité, sa conformité aux normes ANSI SQL et sa capacité à gérer de grands volumes de données, PostgreSQL est utilisé par de nombreuses entreprises et organisations dans le monde entier pour leurs applications critiques.
+PostgreSQL is an extremely robust open-source relational database, offering many advanced features such as JSON support, geolocation, complex queries and much more. Known for its reliability, its compliance with the ANSI SQL standard and its ability to handle large volumes of data, PostgreSQL is used by many companies and organizations around the world for their critical applications.
 
-**PgAdmin** :
+**PgAdmin**:
 
-PgAdmin est une interface d'administration web open source pour PostgreSQL, offrant une manière conviviale de créer, gérer et surveiller vos bases de données PostgreSQL. Avec PgAdmin, les utilisateurs peuvent exécuter des requêtes SQL, importer et exporter des données, créer des sauvegardes et bien plus encore, le tout via une interface graphique intuitive.
+PgAdmin is an open-source web administration interface for PostgreSQL, providing a user-friendly way to create, manage and monitor your PostgreSQL databases. With PgAdmin, users can run SQL queries, import and export data, create backups and much more, all through an intuitive graphical interface.
 
-## Installation de PostgreSQL et PgAdmin via Docker
+## Installing PostgreSQL and PgAdmin with Docker
 
-Pour simplifier le processus d'installation et d'exécution de PostgreSQL et PgAdmin, nous utiliserons Docker. Assurez-vous d'avoir Docker installé sur votre système avant de continuer. Si ce n'est pas le cas, vous pouvez le télécharger et l'installer à partir du [site officiel de Docker](https://www.docker.com/get-started).
+To simplify the process of installing and running PostgreSQL and PgAdmin, we will use Docker. Make sure Docker is installed on your system before continuing. If it is not, you can download and install it from the [official Docker website](https://www.docker.com/get-started).
 
-Voici les étapes pour installer PostgreSQL et PgAdmin via Docker :
+Here are the steps to install PostgreSQL and PgAdmin with Docker:
 
-**1. Téléchargez l'image PostgreSQL depuis Docker Hub :**
+**1. Pull the PostgreSQL image from Docker Hub:**
 
-Il est toujours recommandé, lorsqu'on tire une image à partir de Docker Hub, de préciser la version. Nous allons tirer la dernière version qui est la 16.2 au moment de la rédaction de cet article.
+When pulling an image from Docker Hub, it is always recommended to specify the version. We will pull the latest version, which is 16.2 at the time of writing this article.
 
-```sh 
+```sh
 docker pull postgres:16.2
 ```
 
-**2. Créez un conteneur PostgreSQL :**
+**2. Create a PostgreSQL container:**
 
-Nous créons un conteneur du serveur Postgres en liant le port 5432 du conteneur au port 5432 de notre machine. 
+We create a Postgres server container by mapping port 5432 of the container to port 5432 of our machine.
 
 ```sh
 docker run --name pgserver-local -p 5432:5432 -e POSTGRES_PASSWORD=$ecureP@ssword -d postgres:16.2
 ```
 
-Remplacez `$ecureP@ssword` par le mot de passe de votre choix.
+Replace `$ecureP@ssword` with the password of your choice.
 
-**3. Téléchargez l'image PgAdmin depuis Docker Hub :**
+**3. Pull the PgAdmin image from Docker Hub:**
 
 ```sh
 docker pull dpage/pgadmin4:8.4
 ```
 
-**4. Créez un conteneur PgAdmin :**
+**4. Create a PgAdmin container:**
 
 ```sh
 docker run --name pgadmin -p 5050:80 -e PGADMIN_DEFAULT_EMAIL=user@dev.net \
  -e PGADMIN_DEFAULT_PASSWORD=mysecretpassword -d dpage/pgadmin4:8.4
 ```
 
-Remplacez `user@dev.net` par votre adresse e-mail et `mysecretpassword` par le mot de passe de votre choix.
+Replace `user@dev.net` with your email address and `mysecretpassword` with the password of your choice.
 
-Après avoir suivi ces étapes, vous devriez avoir PostgreSQL et PgAdmin en cours d'exécution sur votre machine via Docker. Vous pouvez accéder à PgAdmin en ouvrant un navigateur web et en naviguant vers `http://localhost:5050`.
+After following these steps, you should have PostgreSQL and PgAdmin running on your machine via Docker. You can access PgAdmin by opening a web browser and navigating to `http://localhost:5050`.
 
-### Créer un réseau Docker pour faciliter la découverte de Postgres et PgAdmin
+### Creating a Docker network to make Postgres and PgAdmin discover each other
 
-Nous allons créer un réseau Docker `postgres-network` pour permettre que le serveur Postgres et PgAdmin se découvrent facilement.
+We will create a Docker network `postgres-network` so that the Postgres server and PgAdmin can discover each other easily.
 
 ```sh
 docker network create -d bridge postgres-network
 ```
 
-Nous pouvons ajouter le serveur Postgres et PgAdmin au réseau.
+We can add the Postgres server and PgAdmin to the network.
 
 ```sh
 docker network connect postgres-network pgserver-local
 docker network connect postgres-network pgadmin
 ```
 
-Nous pouvons inspecter les adresses IP des deux conteneurs dans le réseau postgres-network.
+We can inspect the IP addresses of the two containers in the postgres-network network.
 
 ```sh
 docker network inspect --format="{{range .Containers}}{{.Name}}: {{.IPv4Address}}{{println}}{{end}}" postgres-network
 ```
 
-### Accéder au serveur Postgres via PgAdmin
+### Accessing the Postgres server through PgAdmin
 
-Une fois les étapes précédentes réalisées nous accédons à PgAdmin via http://localhost:5050/. Via la page nous pouvons saisir les identifiants que nous avons définis à la création du conteneur PgAdmin. 
+Once the previous steps are done, we access PgAdmin via http://localhost:5050/. On that page we can enter the credentials we defined when creating the PgAdmin container.
 
-Après avoir saisi les identifiants PgAdmin nous pouvons enregistrer le serveur Postgres que nous avons créé grâce aux identifiants. 
+After entering the PgAdmin credentials, we can register the Postgres server we created using those credentials.
 
-Une fois le serveur Postgres enregistré nous pouvons consulter toutes les bases de données existantes et autres objets. Par défaut, une base de données de maintenance nommée `postgres` est créée sur le serveur. 
+Once the Postgres server is registered, we can browse all the existing databases and other objects. By default, a maintenance database named `postgres` is created on the server.
 
 ### Conclusion
 
-En utilisant Docker pour installer PostgreSQL et PgAdmin, les développeurs peuvent rapidement mettre en place un environnement de développement local pour la gestion de bases de données. PostgreSQL offre une solution robuste pour stocker et manipuler des données, tandis que PgAdmin simplifie l'administration et la surveillance des bases de données via une interface conviviale.
+By using Docker to install PostgreSQL and PgAdmin, developers can quickly set up a local development environment for database management. PostgreSQL offers a robust solution for storing and manipulating data, while PgAdmin simplifies database administration and monitoring through a user-friendly interface.

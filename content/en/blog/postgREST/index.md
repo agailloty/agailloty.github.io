@@ -1,6 +1,6 @@
 ---
-title: "Découvrir PostgREST"
-description: "Exposer vos tables Postgres via un endpoint REST"
+title: "Discovering PostgREST"
+description: "Expose your Postgres tables through a REST endpoint"
 date: 2025-05-02T10:00:07+01:00
 draft: false
 type: "blog"
@@ -8,15 +8,15 @@ author: "Axel-Cleris Gailloty"
 tags: [postgres, python, docker]
 ---
 
-Dans cet article nous découvrons ensemble comment exposer des tables de votre base de données Postgres via une API REST.
+In this article we discover together how to expose tables from your Postgres database through a REST API.
 
-Postgres est un système de gestion de base de données open-source que j'aime utiliser dans mes projets personnels. 
+Postgres is an open-source database management system that I love to use in my personal projects.
 
-## Lancer les conteneurs Postgres et PostgREST
+## Starting the Postgres and PostgREST containers
 
-Pour la démonstration je vais créer un conteneur Postgres mais si vous suivez cette démo c'est probablement que vous avez déjà une base de données Postgres. 
+For the demonstration I will create a Postgres container, but if you are following this demo you probably already have a Postgres database.
 
-Je crée un fichier Docker compose dans lequel je déclare deux services : `db` pour Postgres et `postgrest` pour PostgREST.
+I create a Docker compose file in which I declare two services: `db` for Postgres and `postgrest` for PostgREST.
 
 ```docker
 services:
@@ -52,23 +52,23 @@ volumes:
   pgdata:
 ```
 
-Lancer les conteneurs avec la commande docker compose up.
+Start the containers with the docker compose up command.
 
 ```bash
 docker compose up -d
 ```
 
-## Setup d'un projet
+## Project setup
 
-Ce projet met en place une API REST simple mais fonctionnelle pour une entreprise de e-commerce spécialisée dans la vente de matériel informatique. La base de données repose sur trois tables principales : `users`, `products` et `orders`.
+This project sets up a simple yet functional REST API for an e-commerce company specialized in selling computer hardware. The database relies on three main tables: `users`, `products` and `orders`.
 
-### Script de création des tables 
+### Table creation script
 
 ```sql
--- Créer le rôle anonyme (utilisé par PostgREST)
+-- Create the anonymous role (used by PostgREST)
 CREATE ROLE web_anon NOLOGIN;
 
--- Table des utilisateurs
+-- Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     full_name TEXT NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Table des produits
+-- Products table
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -85,7 +85,7 @@ CREATE TABLE products (
     stock INT DEFAULT 0
 );
 
--- Table des commandes
+-- Orders table
 CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id),
@@ -95,10 +95,10 @@ CREATE TABLE orders (
 );
 ```
 
-### Insertion des données 
+### Inserting the data
 
 ```sql
--- Utilisateurs
+-- Users
 INSERT INTO users (full_name, email) VALUES
 ('Alice Dupont', 'alice@example.com'),
 ('Bob Martin', 'bob@example.com'),
@@ -113,22 +113,22 @@ INSERT INTO users (full_name, email) VALUES
 ```
 
 ```sql
--- Produits
+-- Products
 INSERT INTO products (name, description, price, stock) VALUES
-('Ordinateur portable Dell XPS 13', 'Ultrabook performant et léger', 1299.99, 15),
-('Clavier mécanique Logitech', 'Clavier RGB avec switchs Cherry MX', 149.99, 30),
-('Souris Logitech MX Master 3', 'Souris ergonomique sans fil', 99.99, 40),
-('Écran 27" LG 4K', 'Moniteur UHD pour graphistes et développeurs', 399.99, 20),
-('SSD Samsung 1To', 'Disque dur SSD NVMe haute performance', 159.99, 25),
-('Station d''accueil USB-C', 'Pour connecter plusieurs périphériques', 89.99, 35),
-('Carte graphique NVIDIA RTX 4070', 'GPU pour gaming et création', 649.99, 10),
-('Casque audio Bose QC45', 'Casque Bluetooth à réduction de bruit', 329.99, 18),
-('Webcam Logitech C920', 'Webcam HD pour visio-conférences', 89.99, 50),
-('Routeur Wi-Fi 6 TP-Link', 'Routeur performant pour maison connectée', 129.99, 22);
+('Dell XPS 13 laptop', 'Powerful and lightweight ultrabook', 1299.99, 15),
+('Logitech mechanical keyboard', 'RGB keyboard with Cherry MX switches', 149.99, 30),
+('Logitech MX Master 3 mouse', 'Ergonomic wireless mouse', 99.99, 40),
+('27" LG 4K monitor', 'UHD monitor for designers and developers', 399.99, 20),
+('Samsung 1TB SSD', 'High performance NVMe SSD drive', 159.99, 25),
+('USB-C docking station', 'To connect multiple peripherals', 89.99, 35),
+('NVIDIA RTX 4070 graphics card', 'GPU for gaming and creation', 649.99, 10),
+('Bose QC45 headphones', 'Bluetooth noise-cancelling headphones', 329.99, 18),
+('Logitech C920 webcam', 'HD webcam for video conferences', 89.99, 50),
+('TP-Link Wi-Fi 6 router', 'Powerful router for the connected home', 129.99, 22);
 ```
 
 ```sql
--- Commandes
+-- Orders
 INSERT INTO orders (user_id, product_id, quantity) VALUES
 (1, 1, 1),
 (2, 3, 2),
@@ -142,7 +142,7 @@ INSERT INTO orders (user_id, product_id, quantity) VALUES
 (10, 9, 2);
 ```
 
-## Créer une vue pour afficher les commandes
+## Creating a view to display the orders
 
 ```sql
 CREATE VIEW public_orders AS
@@ -159,16 +159,16 @@ JOIN users u ON o.user_id = u.id
 JOIN products p ON o.product_id = p.id;
 ```
 
-## Accéder aux données via l'endpoint PostgREST
+## Accessing the data through the PostgREST endpoint
 
-PostgREST ne peut accéder aux éléments de notre BDD que si nous lui avons donné le droit.
+PostgREST can only access our database objects if we have granted it the rights.
 
 ```sql
 GRANT USAGE ON SCHEMA public TO web_anon;
 GRANT SELECT ON public_orders TO web_anon;
 ```
 
-### Retourner toutes les données de la vue `public_orders`
+### Returning all the data from the `public_orders` view
 
 ```sh
 curl GET http://localhost:3000/public_orders
@@ -179,7 +179,7 @@ curl GET http://localhost:3000/public_orders
   {
     "order_id": 1,
     "customer": "Alice Dupont",
-    "product": "Ordinateur portable Dell XPS 13",
+    "product": "Dell XPS 13 laptop",
     "quantity": 1,
     "price": 1299.99,
     "total_price": 1299.99,
@@ -188,7 +188,7 @@ curl GET http://localhost:3000/public_orders
   {
     "order_id": 2,
     "customer": "Bob Martin",
-    "product": "Souris Logitech MX Master 3",
+    "product": "Logitech MX Master 3 mouse",
     "quantity": 2,
     "price": 99.99,
     "total_price": 199.98,
@@ -197,7 +197,7 @@ curl GET http://localhost:3000/public_orders
 ]
 ```
 
-### Filtrer les données de la vue `public_orders`
+### Filtering the data from the `public_orders` view
 
 ```sh
 http://localhost:3000/public_orders?customer=eq.Alice%20Dupont
@@ -208,7 +208,7 @@ http://localhost:3000/public_orders?customer=eq.Alice%20Dupont
   {
     "order_id": 1,
     "customer": "Alice Dupont",
-    "product": "Ordinateur portable Dell XPS 13",
+    "product": "Dell XPS 13 laptop",
     "quantity": 1,
     "price": 1299.99,
     "total_price": 1299.99,
@@ -217,8 +217,8 @@ http://localhost:3000/public_orders?customer=eq.Alice%20Dupont
 ]
 ```
 
-## Conclusion et suite du projet
+## Conclusion and next steps
 
-Pour ne pas surcharger cet article, je vais m'arrêter à la requête GET vers l'API PostgREST. Mais dans des articles ultérieurs nous verrons ensemble comment envoyer des requêtes de type POST, DELETE, PUT ... avec PostgREST. 
+To keep this article manageable, I will stop at the GET request to the PostgREST API. In future articles we will see together how to send POST, DELETE, PUT ... requests with PostgREST.
 
-J'ai créé un répertoire Github pour suivre l'évolution du projet : https://github.com/agailloty/postgrest-demo
+I created a GitHub repository to follow the project's progress: https://github.com/agailloty/postgrest-demo
