@@ -8,9 +8,11 @@ author: "Axel-Cleris Gailloty"
 tags: [".NET", "C#", "async", "runtime", "IL"]
 ---
 
-Fifteen years of async/await rested on an illusion. When you wrote an `async` method, it never existed as a method: the C# compiler chopped it into a state machine, a generated struct implementing `IAsyncStateMachine`, whose job was to simulate a coroutine that the runtime could not execute. With .NET 11, that era ends. The runtime itself now understands suspension and resumption, and the state machine disappears.
+Fifteen years of async/await rested on an illusion. When you wrote an `async` method, it never existed as a method: the C# compiler chopped it into a state machine, a generated struct whose job was to simulate a coroutine that the runtime could not execute. With .NET 11, that era ends. The runtime itself now understands method suspension and resumption, and the state machine disappears.
 
-This is the kind of change you don't see in the most visible release notes, yet it redefines the internal mechanics of the whole ecosystem. I wanted to verify it myself, and you can too. Take the simplest possible program, compile it with the .NET 10 SDK, then with the .NET 11 SDK and the `runtime-async` feature enabled, and disassemble both DLLs with ildasm. The difference is spectacular.
+Microsoft presented it as one of the major advances of .NET 11: the feature, called runtime async, was announced as early as Preview 1 and detailed on the .NET Blog. The .NET runtime libraries are themselves now compiled with `runtime-async=on` and no longer contain any compiler-generated state machines. The .NET team is clearly betting on it.
+
+I wanted to see the change with my own eyes, and you can too. Take the simplest possible program, compile it with the .NET 10 SDK, then with the .NET 11 SDK and the `runtime-async` feature enabled, and disassemble both DLLs with ildasm. The difference is spectacular.
 
 ## The test program
 
@@ -44,85 +46,102 @@ Then:
 ildasm /tok /byt async-dotnet.dll /out=dump.il
 ```
 
-## The historical contract: the state machine
+Here is the infographic summarizing both approaches, which we will then break down:
 
-Let's start with .NET 10, that is, the behavior of C# 5 through C# 13, unchanged since 2012.
+<iframe src="/net11-runtime-async/infographie.html" style="width:100%;height:1450px;border:1px solid rgba(0,0,0,0.08);border-radius:12px;" loading="lazy" title="Infographic: async .NET 10 vs .NET 11"></iframe>
 
-In the dump, the `Main` method you wrote executes nothing useful. It holds only 49 bytes of IL, and its sole job is to instantiate the real heart of the program: a struct named `<Main>d__0`. Same for `DoTaskAsynchronously`, relayed to `<DoTaskAsynchronously>d__1`.
+## .NET 10: the state machine
 
-Each generated struct implements `IAsyncStateMachine` and carries three plumbing fields: `<>1__state` (the resumption point, an integer), `<>t__builder` (an `AsyncTaskMethodBuilder` that drives completion and the returned `Task`), and `<>u__1` (the awaiter saved between suspensions).
+A state machine is an object that memorizes where a piece of work left off so it can continue later. That is exactly what the compiler generates for every `async` method since C# 5 (2012): the CLR of the time could not suspend and then resume a method, so Roslyn transforms your code into a generated struct, `<Main>d__0`, implementing the `IAsyncStateMachine` interface. Your method becomes nothing more than a 49-byte launcher stub: it instantiates the struct, creates an `AsyncTaskMethodBuilder` (the driver that produces the returned `Task`), and starts the machine.
 
-All the logic lives in `MoveNext()`. The first run unwinds the method up to the first `await`. If the operation isn't complete, the machine saves its state, calls `AwaitUnsafeOnCompleted` to register with the task, and returns. Later, the runtime calls `MoveNext()` again, `<>1__state` tells it where to resume, and execution continues after the `await`. A `try/catch` block wraps everything to route exceptions to `SetException`, and `SetResult` concludes.
+The real body of your method lives in `MoveNext()`. Concretely, execution follows four steps:
 
-Translated back to C#, `Main`'s `MoveNext` looks like this:
+1. Launch. The `Main` stub instantiates `<Main>d__0`, initializes its state (`<>1__state = -1`), and calls `builder.Start()`.
+2. First run. `MoveNext` unwinds your code up to the first `await`. If the task is already complete, execution continues without interruption.
+3. Suspension. Otherwise, the machine memorizes its resumption point (`state = 0`), stores the awaiter in a field, registers with the task via `AwaitUnsafeOnCompleted`, and returns. The method physically "exits" the call stack.
+4. Resumption. When the task completes, the runtime calls `MoveNext` again. The `state` field tells it to resume after the `await`: the awaiter yields its result, and `SetResult` concludes the `Task`.
+
+The following C# pseudocode approximately illustrates what the compiler generates to help the runtime. It is a simplification, but every element — the `state` field, the memorized awaiter, the `try/catch` routing exceptions to `SetException` — really exists in the IL:
 
 ```csharp
-int num = <>1__state;
-try
+// Pseudo-code, approximation de ce que le compilateur génère
+struct <Main>d__0 : IAsyncStateMachine   // générée par Roslyn
 {
-    TaskAwaiter awaiter;
-    if (num != 0)
+    public int <>1__state;               // où reprendre (-1, 0, -2)
+    public AsyncTaskMethodBuilder <>t__builder;
+    private TaskAwaiter <>u__1;          // l'awaiter mémorisé
+
+    void MoveNext()
     {
-        awaiter = DoTaskAsynchronously().GetAwaiter();
-        if (!awaiter.IsCompleted)
+        int num = <>1__state;
+        try
         {
-            <>1__state = 0;
-            <>u__1 = awaiter;
-            <>t__builder.AwaitUnsafeOnCompleted(ref awaiter, ref this);
-            return; // suspension: the method "exits" here
+            TaskAwaiter awaiter;
+            if (num != 0)                 // première exécution
+            {
+                awaiter = DoTaskAsynchronously().GetAwaiter();
+                if (!awaiter.IsCompleted)
+                {
+                    <>1__state = 0;       // mémorise le point de reprise
+                    <>u__1 = awaiter;
+                    <>t__builder.AwaitUnsafeOnCompleted(ref awaiter, ref this);
+                    return;               // suspension : on "sort" de la méthode
+                }
+            }
+            else                          // reprise
+            {
+                awaiter = <>u__1;
+                <>u__1 = default;
+                <>1__state = -1;
+            }
+            awaiter.GetResult();
         }
+        catch (Exception ex)
+        {
+            <>1__state = -2;
+            <>t__builder.SetException(ex);
+            return;
+        }
+        <>1__state = -2;
+        <>t__builder.SetResult();
     }
-    else
-    {
-        awaiter = <>u__1;
-        <>u__1 = default;
-        <>1__state = -1;
-    }
-    awaiter.GetResult();
-}
-catch (Exception ex)
-{
-    <>1__state = -2;
-    <>t__builder.SetException(ex);
-    return;
-}
-<>1__state = -2;
-<>t__builder.SetResult();
-```
-
-For our two one-line methods, the compiler produced two structs, two `MoveNext` implementations, two `SetStateMachine` methods, six fields, two `try/catch` blocks, and two launcher stubs. In total, 339 bytes of IL for `Main` alone. That is the historical price of `async`: every variable that survives an `await` becomes a field, every suspension becomes a state, every method a class in disguise.
-
-To be fair: this design aged remarkably well. It made async/await work on runtimes that knew nothing about it. But it duplicates logic in every compiled async method, and the runtime remains, deep down, oblivious to what is going on.
-
-## The break: the CLR becomes async-aware
-
-Now open the .NET 11 dump. The `<Main>d__0` and `<DoTaskAsynchronously>d__1` structs no longer exist. No `IAsyncStateMachine`, no builder, no `<>1__state` field, no `AsyncStateMachineAttribute`. Only the `<>c` display class remains, identical in both versions, caching the lambda's delegate.
-
-`Main` now fits in 13 bytes of IL:
-
-```il
-.method public hidebysig static class [System.Runtime]System.Threading.Tasks.Task Main() cil managed
-{
-    // Code size 13 (0xd)
-    IL_0000:  nop
-    IL_0001:  call       class [System.Runtime]System.Threading.Tasks.Task Program::DoTaskAsynchronously()
-    IL_0006:  call       void [System.Runtime]System.Runtime.CompilerServices.AsyncHelpers::Await(class [System.Runtime]System.Threading.Tasks.Task)
-    IL_000b:  nop
-    IL_000c:  ret
 }
 ```
 
-The IL is linear. No switch on a state, no generated `try/catch`, no builder. The `await` becomes an ordinary method call: `AsyncHelpers.Await`. That is the conceptual shift. In .NET 10, suspension was a `return` from `MoveNext` after calling `AwaitUnsafeOnCompleted`. In .NET 11, suspension is encapsulated inside `AsyncHelpers.Await`, and it is the CLR that saves and restores the method's state, including the locals that live across the await point. Only the variables actually concerned are preserved, handled directly by the runtime instead of being hoisted into fields.
+For our two one-line methods, the compiler produced two structs, two `MoveNext` implementations, two `SetStateMachine` methods, six fields, two `try/catch` blocks, and two launcher stubs: 339 bytes of IL for `Main` alone. Every variable that survives an `await` becomes a field. Every suspension becomes a state. That is the historical price of `async`.
 
-Even the process entry point changes face. In .NET 10, the `<Main>()` stub blocked on `GetAwaiter().GetResult()`. In .NET 11, it delegates to `AsyncHelpers.HandleAsyncEntryPoint`. All the way down to program bootstrap, async has moved from the compiler back to the runtime.
+This design aged remarkably well: it made async/await work everywhere, on runtimes that knew nothing about it. But it duplicates all this logic in every compiled async method, and the runtime remains, deep down, a spectator.
+
+## .NET 11: the CLR becomes async-aware
+
+Now open the .NET 11 dump. Same program, same compiler, feature enabled. The contrast: the `<Main>d__0` and `<DoTaskAsynchronously>d__1` structs no longer exist. No `IAsyncStateMachine`, no builder, no `<>1__state` field. Only the `<>c` display class remains, identical in both versions, caching the lambda's delegate.
+
+On the same basis as before, `Main` now follows three steps:
+
+1. Direct call. `Main` is a real method with 13 bytes of linear IL. It calls `DoTaskAsynchronously()` without instantiating any machine.
+2. Expressed suspension. Instead of a state machine, a single call: `AsyncHelpers.Await(task)`. The method no longer "exits" itself: it expresses its suspension, and the CLR saves the stack state, the relevant locals, and will hand control back at the right place.
+3. Native resumption. The runtime restores the method and continues execution. No generated `try/catch`: exception propagation across suspension points is handled by the CLR. `Await<int>` directly returns the task's result.
+
+In pseudocode, still as an approximation:
+
+```csharp
+// Pseudo-code: what Main becomes under .NET 11 — no generated struct
+static Task Main()
+{
+    Task task = DoTaskAsynchronously();
+    AsyncHelpers.Await(task);   // suspension expressed, execution delegated to the CLR
+}
+```
+
+The comparison is striking on the same criteria: 339 bytes of IL for `Main` under .NET 10 versus 13 under .NET 11. Two generated structs versus zero. Two generated `try/catch` blocks versus zero. Even the process entry point changes: under .NET 10, the `<Main>()` stub blocked on `GetAwaiter().GetResult()`; under .NET 11, it delegates to `AsyncHelpers.HandleAsyncEntryPoint`. Everywhere, async has moved from the compiler back to the runtime.
 
 ## What it changes in practice
 
-For the same source code, the .NET 11 assembly contains fewer types, fewer methods, fewer fields, and fewer metadata entries. The JIT has less work. At runtime, the path is more direct: no state machine struct to box when it crosses `AwaitUnsafeOnCompleted`, no builder to instantiate.
+For the same source code, the .NET 11 assembly contains fewer types, fewer methods, fewer fields, and fewer metadata entries. The JIT has less work. At runtime, the path is more direct: no state machine struct to handle, no builder.
 
-The most interesting benefit concerns async call chains. When one runtime-async method awaits another, the runtime can optimize the handoff between the two, and in some cases avoid allocating a `Task` entirely. Every intermediate layer of an async chain used to be a state machine composing with the next one; it is now a single CLR-driven execution.
+The most interesting benefit concerns async call chains. When one runtime-async method awaits another, the runtime can optimize the handoff between the two and, in some cases, avoid allocating a `Task` entirely. Every intermediate layer of an async chain used to be a state machine composing with the next one; it is now a single CLR-driven execution.
 
-Two honest caveats to finish. First, the observable semantics of your code do not change: this is an execution strategy evolution, not a language change. Second, the feature is opt-in via `<Features>runtime-async=on</Features>`, consistent with a first .NET 11 preview. It is worth exploring now so you understand it on the day it becomes the default.
+Two honest caveats to finish. First, the observable semantics of your code do not change: this is an execution strategy evolution, not a language change. Second, the feature is opt-in in your csproj via `<Features>runtime-async=on</Features>` — but again, the .NET runtime libraries already use it by default. On the day it becomes the compiler's default behavior, you will already know what happens under the hood.
 
 ## Conclusion
 
@@ -130,26 +149,21 @@ The state machine was one of the most elegant tricks in C#'s history: convincing
 
 The complete IL dumps of both versions are in the appendix. Open them, compare, and above all run the experiment yourself: disassembling it yourself is how you truly measure the scale of the change.
 
+## Bibliography
+
+- Microsoft, .NET Blog — Performance Improvements in .NET 11 (runtime async section): <https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-11/>
+- Microsoft Learn — What's new in .NET 11 runtime: <https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-11/runtime>
+- dotnet/runtime — runtime-async design spec: <https://github.com/dotnet/runtime/blob/main/docs/design/specs/runtime-async.md>
+- Laurent Kempé — Exploring .NET 11 Preview 1 Runtime Async: <https://laurentkempe.com/2026/02/14/exploring-net-11-preview-1-runtime-async-a-dive-into-the-future-of-async-in-net/>
+
 ## Appendix
 
 <details>
 <summary><strong>Full IL — .NET 10 (SDK 10, state machine)</strong></summary>
 
 ```il
-//  Microsoft (R) .NET Framework IL Disassembler.  Version 4.8.3928.0
+// ildasm — async-dotnet.dll (.NET 10, SDK 10)
 // Metadata version: v4.0.30319
-.assembly extern System.Runtime
-{
-  .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A )
-  .ver 10:0:0:0
-}
-.assembly 'async-dotnet'
-{
-  .hash algorithm 0x00008004
-  .ver 1:0:0:0
-}
-.module 'async-dotnet.dll'
-.corflags 0x00000001    //  ILONLY
 
 .class public auto ansi beforefieldinit Program
        extends [System.Runtime]System.Object
@@ -378,7 +392,7 @@ The complete IL dumps of both versions are in the appendix. Open them, compare, 
       IL_0088:  stfld      int32 Program/'<Main>d__0'::'<>1__state'
       IL_008d:  ldarg.0
       IL_008e:  ldflda     valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder Program/'<Main>d__0'::'<>t__builder'
-        IL_0093:  call       instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::SetResult()
+      IL_0093:  call       instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::SetResult()
       IL_0098:  nop
       IL_0099:  ret
     } // end of method '<Main>d__0'::MoveNext
@@ -394,7 +408,6 @@ The complete IL dumps of both versions are in the appendix. Open them, compare, 
   .method public hidebysig static class [System.Runtime]System.Threading.Tasks.Task Main() cil managed
   {
     .custom instance void [System.Runtime]System.Runtime.CompilerServices.AsyncStateMachineAttribute::.ctor(class [System.Runtime]System.Type) = ( 01 00 12 50 72 6F 67 72 61 6D 2B 3C 4D 61 69 6E 3E 64 5F 5F 30 00 00 )
-    .custom instance void [System.Runtime]System.Diagnostics.DebuggerStepThroughAttribute::.ctor() = ( 01 00 00 00 )
     // Code size 49 (0x31)
     .maxstack  2
     .locals init (class Program/'<Main>d__0' V_0)
@@ -419,7 +432,6 @@ The complete IL dumps of both versions are in the appendix. Open them, compare, 
   .method private hidebysig static class [System.Runtime]System.Threading.Tasks.Task DoTaskAsynchronously() cil managed
   {
     .custom instance void [System.Runtime]System.Runtime.CompilerServices.AsyncStateMachineAttribute::.ctor(class [System.Runtime]System.Type) = ( 01 00 22 50 72 6F 67 72 61 6D 2B 3C 44 6F 54 61 73 6B 41 73 79 6E 63 68 72 6F 6E 6F 75 73 6C 79 3E 64 5F 5F 31 00 00 )
-    .custom instance void [System.Runtime]System.Diagnostics.DebuggerStepThroughAttribute::.ctor() = ( 01 00 00 00 )
     // Code size 49 (0x31)
     .maxstack  2
     .locals init (class Program/'<DoTaskAsynchronously>d__1' V_0)
@@ -463,20 +475,8 @@ The complete IL dumps of both versions are in the appendix. Open them, compare, 
 <summary><strong>Full IL — .NET 11 (SDK 11, runtime-async=on)</strong></summary>
 
 ```il
-//  Microsoft (R) .NET Framework IL Disassembler.  Version 4.8.3928.0
+// ildasm — async-dotnet.dll (.NET 11, SDK 11, runtime-async=on)
 // Metadata version: v4.0.30319
-.assembly extern System.Runtime
-{
-  .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A )
-  .ver 11:0:0:0
-}
-.assembly 'async-dotnet'
-{
-  .hash algorithm 0x00008004
-  .ver 1:0:0:0
-}
-.module 'async-dotnet.dll'
-.corflags 0x00000001    //  ILONLY
 
 .class public auto ansi beforefieldinit Program
        extends [System.Runtime]System.Object
