@@ -52,7 +52,7 @@
 
 private static async Task DoTaskAsynchronously()
 {
-    await Task.Run(() =&gt; 5 + 1);
+    await Task.Delay(100);
 }</pre>
   </div>
   <div class="cards">
@@ -90,8 +90,8 @@ builder.SetResult();</div>
       </div>
       <div class="stats">
         <div class="stat"><div class="v v10">2</div><div class="k">structs générées</div></div>
-        <div class="stat"><div class="v v10">339 o</div><div class="k">IL pour Main</div></div>
-        <div class="stat"><div class="v v10">≈</div><div class="k">allocations builder</div></div>
+        <div class="stat"><div class="v v10">203 o</div><div class="k">IL générée pour Main</div></div>
+        <div class="stat"><div class="v v10">2</div><div class="k">try/catch générés</div></div>
       </div>
     </section>
     <section class="card">
@@ -110,9 +110,9 @@ builder.SetResult();</div>
         </div></div>
         <div class="step"><div class="stepnum">3</div><div class="stepbody">
           <div class="steptitle">Reprise native</div>
-          <div class="stepdesc">Le runtime restaure la méthode et poursuit — pas de machine à états, pas de try/catch généré.</div>
+          <div class="stepdesc">Le runtime restaure la méthode et poursuit — pas de machine à états.</div>
           <div class="stepcode rt">// reprise gérée par le CLR
-// résultat retourné par Await&lt;int&gt;(task)</div>
+// pas de struct, pas de try/catch généré</div>
         </div></div>
       </div>
       <div class="stats">
