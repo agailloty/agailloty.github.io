@@ -46,12 +46,6 @@ Puis :
 ildasm /tok /byt async-dotnet.dll /out=dump.il
 ```
 
-Voici l'infographie résumant les deux approches, que nous allons décortiquer ensuite :
-
-<iframe src="/net11-runtime-async/infographie.html" style="width:100%;height:1450px;border:1px solid rgba(0,0,0,0.08);border-radius:12px;" loading="lazy" title="Infographie : async .NET 10 vs .NET 11"></iframe>
-
-[Ouvrir l'infographie dans un onglet](/net11-runtime-async/infographie.html)
-
 ## .NET 10 : la machine à états
 
 Une machine à états, c'est un objet qui mémorise où en est un travail pour pouvoir le poursuivre plus tard. C'est exactement ce que le compilateur génère pour chaque méthode `async` depuis C# 5 (2012) : le CLR de l'époque ne savait pas suspendre puis reprendre une méthode, alors Roslyn transforme votre code en une struct générée, `<Main>d__0`, qui implémente l'interface `IAsyncStateMachine`. Votre méthode n'est plus qu'un stub de lancement de 49 octets : elle instancie la struct, crée un `AsyncTaskMethodBuilder` (le pilote qui produira le `Task` retourné), puis démarre la machine.

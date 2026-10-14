@@ -46,12 +46,6 @@ Then:
 ildasm /tok /byt async-dotnet.dll /out=dump.il
 ```
 
-Here is the infographic summarizing both approaches, which we will then break down:
-
-<iframe src="/net11-runtime-async/infographie-en.html" style="width:100%;height:1450px;border:1px solid rgba(0,0,0,0.08);border-radius:12px;" loading="lazy" title="Infographic: async .NET 10 vs .NET 11"></iframe>
-
-[Open the infographic in a new tab](/net11-runtime-async/infographie-en.html)
-
 ## .NET 10: the state machine
 
 A state machine is an object that memorizes where a piece of work left off so it can continue later. That is exactly what the compiler generates for every `async` method since C# 5 (2012): the CLR of the time could not suspend and then resume a method, so Roslyn transforms your code into a generated struct, `<Main>d__0`, implementing the `IAsyncStateMachine` interface. Your method becomes nothing more than a 49-byte launcher stub: it instantiates the struct, creates an `AsyncTaskMethodBuilder` (the driver that produces the returned `Task`), and starts the machine.
