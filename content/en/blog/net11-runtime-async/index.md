@@ -1,7 +1,7 @@
 ---
 title: ".NET 11 killed the state machine"
 description: "Since C# 5, async/await has rested entirely on a compiler rewrite. .NET 11 changes the game: the runtime now executes asynchrony natively."
-date: 2026-10-14T10:00:00Z
+date: 2026-10-14T08:00:00Z
 draft: false
 type: "blog"
 author: "Axel-Cleris Gailloty"
@@ -378,7 +378,7 @@ The complete IL dumps of both versions are in the appendix. Open them, compare, 
       IL_0088:  stfld      int32 Program/'<Main>d__0'::'<>1__state'
       IL_008d:  ldarg.0
       IL_008e:  ldflda     valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder Program/'<Main>d__0'::'<>t__builder'
-      IL_0093:  call       instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::SetResult()
+        IL_0093:  call       instance void [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder::SetResult()
       IL_0098:  nop
       IL_0099:  ret
     } // end of method '<Main>d__0'::MoveNext
