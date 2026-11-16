@@ -8,7 +8,7 @@ author: "Axel-Cleris Gailloty"
 tags: ["immich", "proxmox", "self-hosting", "docker", "troubleshooting"]
 ---
 
-I love Immich. Self-hosted, free and open source, it gives you full sovereignty over your photos and videos. Your data stays at home, on your server, with no middleman and no platform monetizing your memories. It is a remarkably polished project, and that is why watching image recognition break down is so frustrating: the software works perfectly, but one brick of your infrastructure is silently blocking it.
+Immich is a remarkable solution: self-hosted, free and open source, it gives you full sovereignty over your photos and videos. Your data stays at home, on your server, with no middleman and no platform monetizing your memories. It is a high-quality project, and that is why watching image recognition break down is so frustrating: the software works perfectly, but one brick of your infrastructure is silently blocking it.
 
 One morning, you open Immich. Semantic search returns nothing. Faces are no longer detected. You check the containers, and `immich_machine_learning` keeps restarting. In the logs, always the same message:
 

@@ -8,7 +8,7 @@ author: "Axel-Cleris Gailloty"
 tags: ["immich", "proxmox", "self-hosting", "docker", "dépannage"]
 ---
 
-J'adore Immich. Auto-hébergé, gratuit et open source, il vous rend la souveraineté totale sur vos photos et vos vidéos. Vos données restent chez vous, sur votre serveur, sans intermédiaire ni plateforme qui revend vos souvenirs. C'est un projet d'une qualité rare, et c'est pour ça que voir la reconnaissance d'images tomber en panne est si frustrant : le logiciel fonctionne parfaitement, mais une brique de votre infrastructure le bloque en silence.
+Immich est une solution remarquable : auto-hébergée, gratuite et open source, elle vous rend la souveraineté totale sur vos photos et vos vidéos. Vos données restent chez vous, sur votre serveur, sans intermédiaire ni plateforme qui revend vos souvenirs. C'est un projet d'une grande qualité, et c'est pour ça que voir la reconnaissance d'images tomber en panne est si frustrant : le logiciel fonctionne parfaitement, mais une brique de votre infrastructure le bloque en silence.
 
 Un matin, vous ouvrez Immich. La recherche sémantique ne renvoie plus rien. Les visages ne sont plus détectés. Vous vérifiez les conteneurs, et `immich_machine_learning` redémarre en boucle. Dans les logs, toujours le même message :
 
